@@ -1,0 +1,7 @@
+{
+  "name": "Audit Crystal - gold standard for CSRD readiness",
+  "description": "AI-powered CSRD readiness assistant that ingests PDFs/URLs to generate action roadmaps.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
