@@ -48,13 +48,25 @@ export interface ClimateScenario {
   keyRiskDriver: string;
 }
 
+export interface TaxonomyData {
+  aligned: number;
+  eligible: number;
+  nonEligible: number;
+}
+
 export interface FinancialImpact {
   estimatedRevenueAtRisk: string;
+  totalRevenue?: number;
+  revenueAtRiskPercentage?: number;
+  currency?: string;
   compliancePenaltyExposure: string;
   marketValuationRisk: string;
   costOfCapitalImpactBps: number;
   scenarios: any[];
   climateScenarios?: ClimateScenario[];
+  taxonomy?: TaxonomyData;
+  carbonIntensityMetric?: string;
+  scope1And2Tonnage?: number;
 }
 
 export interface MaterialityTopic {

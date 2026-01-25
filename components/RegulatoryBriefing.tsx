@@ -1,26 +1,29 @@
 import React from 'react';
-import { Clock, AlertCircle, Calendar, ShieldCheck, ArrowRight, Gavel } from 'lucide-react';
+import { Clock, AlertCircle, Calendar, ShieldCheck, ArrowRight, Gavel, Scale, Globe } from 'lucide-react';
 
 const RegulatoryBriefing: React.FC = () => {
   const milestones = [
     {
-      date: "Jan 2024",
-      group: "Group 1: NFRD Entities",
-      desc: "Large public-interest companies (>500 employees) must report on 2024 data.",
-      status: "Past"
+      date: "Dec 2024",
+      group: "IAASB: ISSA 5000",
+      desc: "Finalization of the global standard for sustainability assurance, covering limited and reasonable assurance.",
+      status: "Past",
+      icon: <ShieldCheck size={18} />
     },
     {
       date: "Jan 2025",
-      group: "Group 2: All Large Cos",
-      desc: "Mandatory for all companies meeting 2/3 criteria (e.g., >250 staff, €50M revenue).",
+      group: "CSRD Phase 2",
+      desc: "Mandatory for all large companies (250+ employees). Limited assurance now a hard requirement.",
       status: "Active",
-      highlight: true
+      highlight: true,
+      icon: <AlertCircle size={18} />
     },
     {
-      date: "Jan 2026",
-      group: "Group 3: Listed SMEs",
-      desc: "Entry level requirements begin for listed SMEs across the Eurozone.",
-      status: "Upcoming"
+      date: "2026-2027",
+      group: "Reasonable Assurance",
+      desc: "Phased transition from 'Limited' to 'Reasonable' assurance for CSRD disclosures begins.",
+      status: "Upcoming",
+      icon: <Calendar size={18} />
     }
   ];
 
@@ -35,15 +38,18 @@ const RegulatoryBriefing: React.FC = () => {
           
           <div className="relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-[10px] font-bold uppercase tracking-wider mb-4 border border-red-500/20">
-              <ShieldCheck size={12} /> Legal Requirement
+              <ShieldCheck size={12} /> ISSA 5000 Compliant
             </div>
-            <h3 className="text-2xl font-bold mb-4">Regulatory Briefing: <br/><span className="text-amber-400">2025 Mandate</span></h3>
+            <h3 className="text-2xl font-bold mb-4">Assurance: <br/><span className="text-amber-400">ISSA 5000 Protocol</span></h3>
             <p className="text-slate-400 text-sm leading-relaxed mb-6">
-              Under the Corporate Sustainability Reporting Directive (CSRD), <span className="text-white font-semibold">"Limited Assurance"</span> is no longer optional. 
-              Non-compliance results in fines up to 5% of global turnover and market exclusion.
+              Audit Crystal is pre-aligned with the IAASB’s <span className="text-white font-semibold">ISSA 5000</span>, the general requirement standard for sustainability assurance. We facilitate both limited and reasonable assurance workflows.
             </p>
+            <div className="flex flex-wrap gap-2 mb-6">
+               <span className="text-[9px] font-black text-slate-500 uppercase px-2 py-1 bg-white/5 rounded border border-white/5">Interoperable with ISSB</span>
+               <span className="text-[9px] font-black text-slate-500 uppercase px-2 py-1 bg-white/5 rounded border border-white/5">IOSCO Coordinated</span>
+            </div>
             <button className="text-xs font-bold text-amber-400 flex items-center gap-1 hover:underline group">
-              View Full Timeline <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              View Assurance Roadmap <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         </div>
@@ -57,7 +63,7 @@ const RegulatoryBriefing: React.FC = () => {
                 <div className={`flex items-center justify-center w-10 h-10 rounded-full border border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 ${
                   m.highlight ? 'bg-amber-400 text-slate-900' : 'bg-slate-200 text-slate-500'
                 }`}>
-                  {m.highlight ? <AlertCircle size={18} /> : <Calendar size={18} />}
+                  {m.icon}
                 </div>
                 {/* Content */}
                 <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow">

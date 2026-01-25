@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { AuditResult } from '../types';
-import { TrendingUp, ShieldAlert, Zap, ArrowUpRight, CheckCircle2, DollarSign, Activity, Play, Pause, Loader2, Volume2, Info, ChevronRight, BarChart3, Target, Sparkles, TrendingDown, Thermometer, CloudLightning, Sun, Waves } from 'lucide-react';
+import { TrendingUp, ShieldAlert, Zap, ArrowUpRight, CheckCircle2, DollarSign, Activity, Play, Pause, Loader2, Volume2, Info, ChevronRight, BarChart3, Target, Sparkles, TrendingDown, Thermometer, CloudLightning, Sun, Waves, Calculator, Sliders, Edit3, Save } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Cell, BarChart, Bar } from 'recharts';
 import { generateBriefingAudio, decodeAudioData, decodeBase64 } from '../services/gemini';
 
@@ -13,12 +12,22 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
   const [isBriefingLoading, setIsBriefingLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioSource, setAudioSource] = useState<AudioBufferSourceNode | null>(null);
+  const [isWorkbenchOpen, setIsWorkbenchOpen] = useState(false);
   
+  // Auditor Overrides
+  const [manualRevenue, setManualRevenue] = useState<number>(data.financialImpact.totalRevenue || 0);
+  const [manualRiskPercent, setManualRiskPercent] = useState<number>(data.financialImpact.revenueAtRiskPercentage || 0);
+
   // State for ROI Simulator
   const [activeRemediations, setActiveRemediations] = useState<number[]>([]);
   
   // State for Climate Stress Test (0: 1.5C, 1: 2.0C, 2: 4.0C)
   const [scenarioIdx, setScenarioIdx] = useState(0);
+
+  // Deterministic Engine Calculations
+  const calculatedRiskAmount = useMemo(() => {
+    return (manualRevenue * (manualRiskPercent / 100));
+  }, [manualRevenue, manualRiskPercent]);
 
   const handlePlayBriefing = async () => {
     if (isPlaying && audioSource) {
@@ -28,15 +37,7 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
     }
     setIsBriefingLoading(true);
     try {
-      // Fix: Added missing properties to the fallback object to match ClimateScenario interface and avoid type errors
-      const currentScenario = data.financialImpact.climateScenarios?.[scenarioIdx] || { 
-        temp: 'Unknown', 
-        riskLevel: 'N/A' as any,
-        revenueImpactMultiplier: 1.0,
-        valuationImpactMultiplier: 1.0,
-        keyRiskDriver: 'Unknown'
-      };
-      const audioContent = `CFO Briefing for ${data.companyName}. Current readiness score is ${data.scoreValue}. Top risk under the ${currentScenario.temp} scenario is ${currentScenario.keyRiskDriver}. Cost of capital impact is ${data.financialImpact.costOfCapitalImpactBps} basis points. Simulation shows potential recovery of ${activeRemediations.length * 8} basis points.`;
+      const audioContent = `CFO Briefing for ${data.companyName}. Current revenue at risk is estimated at ${formatCurrency(calculatedRiskAmount)}. Cost of capital impact is ${data.financialImpact.costOfCapitalImpactBps} basis points.`;
       const base64Audio = await generateBriefingAudio(audioContent);
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       const audioBuffer = await decodeAudioData(decodeBase64(base64Audio), audioCtx);
@@ -54,7 +55,6 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
     }
   };
 
-  // Logic for the ROI Simulator
   const simulatedResults = useMemo(() => {
     const scoreBoost = activeRemediations.reduce((acc, idx) => acc + (data.roadmap[idx]?.impactOnScore || 0), 0);
     const bpsReduction = activeRemediations.length * 8; 
@@ -66,7 +66,6 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
     };
   }, [activeRemediations, data.scoreValue, data.roadmap, data.financialImpact.costOfCapitalImpactBps]);
 
-  // Logic for Climate Stress Test
   const climateImpact = useMemo(() => {
     const scenarios = data.financialImpact.climateScenarios || [
       { temp: '1.5°C', riskLevel: 'Low', revenueImpactMultiplier: 1.0, valuationImpactMultiplier: 1.0, keyRiskDriver: "Transition costs" },
@@ -80,22 +79,9 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
     setActiveRemediations(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
   };
 
-  const bellCurveData = useMemo(() => {
-    return Array.from({ length: 40 }, (_, i) => ({
-      score: i * 2.5,
-      frequency: Math.exp(-Math.pow(i * 2.5 - data.sectorPeerAverage, 2) / 600),
-      simulated: Math.exp(-Math.pow(i * 2.5 - simulatedResults.score, 2) / 600)
-    }));
-  }, [data.sectorPeerAverage, simulatedResults.score]);
-
-  const getScenarioIcon = (level: string) => {
-    switch(level) {
-      case 'Low': return <Sun size={32} className="text-amber-400" />;
-      case 'Moderate': return <Waves size={32} className="text-blue-400" />;
-      case 'High': return <CloudLightning size={32} className="text-indigo-400" />;
-      case 'Catastrophic': return <CloudLightning size={32} className="text-red-500 animate-pulse" />;
-      default: return <Sun size={32} />;
-    }
+  const formatCurrency = (val: number | undefined) => {
+    if (!val) return '—';
+    return new Intl.NumberFormat('en-DE', { style: 'currency', currency: data.financialImpact.currency || 'EUR', notation: 'compact' }).format(val);
   };
 
   return (
@@ -109,16 +95,74 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
            </div>
            
            <div className="relative z-10 flex flex-col md:flex-row justify-between items-start gap-8">
-             <div className="space-y-2">
-               <h3 className="text-amber-400 font-bold uppercase tracking-widest text-[10px] flex items-center gap-2">
-                 <Sparkles size={14} className="animate-pulse" /> The Value Chain Alpha Engine
-               </h3>
-               <div className="text-6xl font-black tracking-tighter flex items-baseline gap-2">
-                 {data.financialImpact.estimatedRevenueAtRisk}
-                 <span className="text-sm text-slate-500 font-medium">Current Risk</span>
+             <div className="space-y-2 flex-1">
+               <div className="flex items-center gap-3 mb-2">
+                 <h3 className="text-amber-400 font-bold uppercase tracking-widest text-[10px] flex items-center gap-2">
+                   <Calculator size={14} className="animate-pulse" /> Deterministic Risk Engine
+                 </h3>
+                 <span className="text-[9px] font-black bg-white/10 px-2 py-0.5 rounded text-slate-400 uppercase tracking-tighter">Verified Extraction</span>
                </div>
-               <p className="text-slate-400 text-sm max-w-md leading-relaxed">
-                 Aggregate financial liability identified across ESRS E1 and S1 domains. Current profile creates a <span className="text-red-400 font-bold">-{data.financialImpact.marketValuationRisk}</span> market valuation discount.
+               
+               <div className="text-6xl font-black tracking-tighter flex flex-col">
+                 <div className="flex items-baseline gap-2">
+                   {formatCurrency(calculatedRiskAmount)}
+                   <span className="text-sm text-slate-500 font-medium uppercase tracking-widest">Total Exposure</span>
+                 </div>
+                 
+                 <div className="flex items-center gap-4 mt-4">
+                    <div className="text-xs font-bold text-slate-500 flex items-center gap-2">
+                      <ArrowUpRight size={12} className="text-amber-500" />
+                      Revenue: {formatCurrency(manualRevenue)}
+                    </div>
+                    <div className="text-xs font-bold text-slate-500 flex items-center gap-2">
+                      <ShieldAlert size={12} className="text-amber-500" />
+                      Risk Weight: <span className="text-amber-400">{manualRiskPercent.toFixed(1)}%</span>
+                    </div>
+                    <button 
+                      onClick={() => setIsWorkbenchOpen(!isWorkbenchOpen)}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all ${
+                        isWorkbenchOpen ? 'bg-amber-500 text-slate-950' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      <Sliders size={12} /> {isWorkbenchOpen ? 'Close Workbench' : 'Auditor Override'}
+                    </button>
+                 </div>
+               </div>
+
+               {isWorkbenchOpen && (
+                 <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-2xl animate-in slide-in-from-top-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       <div className="space-y-3">
+                          <label className="text-[10px] font-black text-slate-400 uppercase">Adjust Total Revenue ({data.financialImpact.currency})</label>
+                          <input 
+                            type="number"
+                            value={manualRevenue}
+                            onChange={(e) => setManualRevenue(Number(e.target.value))}
+                            className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2 text-sm font-bold text-white outline-none focus:border-amber-500"
+                          />
+                       </div>
+                       <div className="space-y-3">
+                          <label className="text-[10px] font-black text-slate-400 uppercase">Adjust Risk Factor (%)</label>
+                          <div className="flex items-center gap-4">
+                            <input 
+                              type="range"
+                              min="0"
+                              max="20"
+                              step="0.1"
+                              value={manualRiskPercent}
+                              onChange={(e) => setManualRiskPercent(Number(e.target.value))}
+                              className="flex-1 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                            />
+                            <span className="text-sm font-black text-amber-400 w-12">{manualRiskPercent}%</span>
+                          </div>
+                       </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-4 italic">*Changes update risk projections and CFO briefing content in real-time.</p>
+                 </div>
+               )}
+
+               <p className="text-slate-400 text-sm max-w-md leading-relaxed pt-6">
+                 Aggregate financial liability identified across ESRS domains. Current profile creates a <span className="text-red-400 font-bold">-{data.financialImpact.marketValuationRisk}</span> market valuation discount based on {manualRiskPercent}% terminal risk.
                </p>
              </div>
 
@@ -139,13 +183,13 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
                  className="w-full h-12 bg-white text-slate-950 rounded-xl font-black flex items-center justify-center gap-3 hover:bg-amber-400 transition-all shadow-xl group border border-white/10"
                >
                  {isBriefingLoading ? <Loader2 size={20} className="animate-spin" /> : isPlaying ? <Pause size={20} /> : <Volume2 size={20} />}
-                 {isPlaying ? "STOP BRIEFING" : "LISTEN TO CFO VOICE MEMO"}
+                 {isPlaying ? "STOP BRIEFING" : "GENERATE CFO VOICE MEMO"}
                </button>
              </div>
            </div>
         </div>
 
-        {/* Climate Stress Test Miniature Control */}
+        {/* Climate Resilience */}
         <div className="bg-slate-900 rounded-2xl p-6 border border-white/5 flex flex-col justify-between text-white shadow-xl">
            <div>
              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -157,14 +201,13 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
                   <span className="text-2xl font-black text-amber-400">{climateImpact.temp}</span>
                 </div>
                 <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                  {getScenarioIcon(climateImpact.riskLevel)}
+                   <Sun size={32} className={climateImpact.riskLevel === 'Catastrophic' ? 'text-red-500 animate-pulse' : 'text-amber-400'} />
                 </div>
              </div>
              <div className="space-y-1">
                <div className="text-[10px] text-slate-500 font-bold uppercase">Risk Level</div>
                <div className={`text-xs font-black uppercase ${
-                 climateImpact.riskLevel === 'Catastrophic' ? 'text-red-500' : 
-                 climateImpact.riskLevel === 'High' ? 'text-orange-400' : 'text-emerald-400'
+                 climateImpact.riskLevel === 'Catastrophic' ? 'text-red-500' : 'text-orange-400'
                }`}>
                  {climateImpact.riskLevel} Profile
                </div>
@@ -190,20 +233,18 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
         </div>
       </div>
 
-      {/* 2. THE STELLAR FEATURE: REMEDIATION ROI SIMULATOR */}
+      {/* 2. REMEDIATION ROI SIMULATOR */}
       <div className="bg-slate-50 border border-slate-200 rounded-3xl p-8 shadow-inner overflow-hidden relative">
         <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
           <Zap size={300} className="text-indigo-600" />
         </div>
 
         <div className="relative z-10 grid grid-cols-1 xl:grid-cols-12 gap-12">
-          
-          {/* Simulation Controls */}
           <div className="xl:col-span-7 space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Remediation ROI Simulator</h2>
-                <p className="text-slate-500 text-sm">Toggle audit remediation steps to see projected financial recovery.</p>
+                <p className="text-slate-500 text-sm">Select audit steps to see projected financial recovery.</p>
               </div>
               <div className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold border border-slate-800 flex items-center gap-2">
                 {activeRemediations.length} Steps Selected
@@ -253,11 +294,10 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
             </div>
           </div>
 
-          {/* Real-time Impact Panel */}
           <div className="xl:col-span-5">
             <div className="sticky top-24 bg-slate-900 rounded-3xl p-8 text-white shadow-2xl border border-slate-800 space-y-8">
               <h3 className="text-amber-400 font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-                <BarChart3 size={14} /> Live Impact Projections
+                <BarChart3 size={14} /> Live Projections
               </h3>
 
               <div className="grid grid-cols-2 gap-6">
@@ -273,37 +313,33 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase">Basis Points Recovery</div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase">BPS Recovery</div>
                   <div className="text-5xl font-black tabular-nums transition-all duration-500 text-emerald-400">
                     -{activeRemediations.length * 8}
                     <span className="text-xs text-slate-600 ml-1">bps</span>
                   </div>
-                  <div className="text-[10px] font-bold text-slate-600 uppercase">In Capital Cost Savings</div>
+                  <div className="text-[10px] font-bold text-slate-600 uppercase">Saving Potential</div>
                 </div>
               </div>
 
-              {/* Stress Test Overlay Impact */}
               <div className="bg-red-950/30 border border-red-900/50 rounded-2xl p-6 space-y-4">
                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-red-200">Climate Exposure Adjusted Risk</span>
+                    <span className="text-xs font-bold text-red-200">Adjusted Risk Factor</span>
                     <span className="text-xs font-black px-2 py-0.5 bg-red-500 text-white rounded uppercase">{climateImpact.temp} Stress</span>
                  </div>
                  <div className="flex items-center gap-6">
                     <div className="flex flex-col">
-                       <span className="text-[10px] text-slate-500 font-bold uppercase">Stressed Revenue Risk</span>
+                       <span className="text-[10px] text-slate-500 font-bold uppercase">Stressed Exposure</span>
                        <span className="text-2xl font-black text-red-400">
-                         {Math.round(climateImpact.revenueImpactMultiplier * 100) - 100}% Inflated
+                         {formatCurrency(calculatedRiskAmount * climateImpact.revenueImpactMultiplier)}
                        </span>
                     </div>
                     <div className="flex-1">
                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-red-500" style={{ width: `${(climateImpact.revenueImpactMultiplier - 1) * 200}%` }}></div>
+                          <div className="h-full bg-red-500" style={{ width: `${(climateImpact.revenueImpactMultiplier - 0.8) * 100}%` }}></div>
                        </div>
                     </div>
                  </div>
-                 <p className="text-[10px] text-slate-400 font-medium">
-                   <strong className="text-slate-200">Key Driver:</strong> {climateImpact.keyRiskDriver} under extreme transition volatility.
-                 </p>
               </div>
 
               <div className="bg-white/5 rounded-2xl p-6 border border-white/10 space-y-4">
@@ -325,11 +361,9 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
                     <ShieldAlert size={20} className="text-white" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-indigo-400">Strategic Imperative</h4>
+                    <h4 className="text-sm font-bold text-indigo-400">Auditor Insight</h4>
                     <p className="text-xs text-slate-400 leading-relaxed mt-1">
-                      {activeRemediations.length === 0 
-                        ? "Select remediations above to see how they hedge against the selected climate scenario risks."
-                        : `Remediation reduces ${climateImpact.temp} exposure by an estimated ${activeRemediations.length * 5}bps of terminal risk.`}
+                      Current remediation path reduces {climateImpact.temp} scenario volatility by {activeRemediations.length * 5}bps.
                     </p>
                   </div>
                 </div>

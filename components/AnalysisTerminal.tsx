@@ -1,101 +1,109 @@
 
-import React, { useEffect, useRef } from 'react';
-import { Terminal, Leaf, Shield, BarChart3, Scale, Zap } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Terminal, Leaf, Shield, BarChart3, Scale, Zap, Loader2, Globe, Cpu, Lock, ShieldCheck } from 'lucide-react';
 
 interface AnalysisTerminalProps {
   streamText: string;
 }
 
+const LOG_MESSAGES = [
+  "VAULT_AUTH_SUCCESS...",
+  "PARSING_INSTITUTIONAL_CORPORATE_LEDGER...",
+  "MAPPING_ESRS_DISCLOSURE_MATRIX...",
+  "DETERMINISTIC_CITATION_LOCK_ACTIVE...",
+  "SEARCHING_GRI_AL_ALIGNMENT...",
+  "VALIDATING_METRIC_GRANULARITY...",
+  "CALCULATING_DOUBLE_MATERIALITY...",
+  "XBRL_PRE_TAGGING_SYNTHESIS...",
+  "CFO_EXECUTIVE_BRIEF_GENERATION...",
+  "AUDIT_CRYSTAL_READY."
+];
+
 const AnalysisTerminal: React.FC<AnalysisTerminalProps> = ({ streamText }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [activeLogs, setActiveLogs] = useState<string[]>([]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (activeLogs.length < LOG_MESSAGES.length) {
+        setActiveLogs(prev => [...prev, LOG_MESSAGES[prev.length]]);
+      }
+    }, 450);
+    return () => clearInterval(interval);
+  }, [activeLogs]);
 
   useEffect(() => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [streamText]);
+  }, [streamText, activeLogs]);
 
-  // Visual formatting for the terminal
   const formatStreamDisplay = (text: string) => {
-    // Show only the most recent chunk of progress to keep it readable
-    const maxLength = 1500;
+    const maxLength = 2500;
     if (text.length <= maxLength) return text;
     return "..." + text.slice(-maxLength);
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto mt-8 animate-in fade-in zoom-in duration-500">
-      <div className="bg-slate-950 rounded-xl overflow-hidden shadow-2xl border border-slate-800 font-mono">
+    <div className="w-full max-w-4xl mx-auto mt-24 animate-in fade-in zoom-in duration-1000">
+      <div className="bg-slate-950 rounded-sm overflow-hidden shadow-[0_60px_120px_rgba(0,0,0,0.8)] border border-white/5 font-mono text-[10px] ring-1 ring-white/5">
         {/* Terminal Header */}
-        <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Terminal size={14} className="text-amber-500" />
-            <span className="text-xs text-slate-400 font-medium tracking-tight">AUDIT_CRYSTAL_CORE // GEMINI_FLASH_TURBO</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-black text-amber-500 animate-pulse">
-              <Zap size={10} fill="currentColor" /> TURBO MODE
+        <div className="bg-white/5 px-8 py-5 border-b border-white/5 flex items-center justify-between backdrop-blur-3xl">
+          <div className="flex items-center gap-6">
+            <div className="flex gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-800"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-800"></div>
             </div>
-            <div className="flex gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-slate-800 border border-slate-700"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-slate-800 border border-slate-700"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse border border-emerald-600"></div>
+            <span className="text-[9px] text-slate-500 font-black tracking-[0.4em] uppercase flex items-center gap-3">
+              <Cpu size={12} className="text-gold-500" />
+              Pre_Audit_Assurance_Protocol_v4.1
+            </span>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 px-4 py-1.5 bg-white text-slate-950 text-[8px] font-black rounded-sm uppercase tracking-widest">
+              <Zap size={10} fill="currentColor" /> Deterministic_Assurance
             </div>
           </div>
         </div>
 
-        {/* Status Indicators */}
-        <div className="bg-slate-900/50 px-4 py-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-[10px] border-b border-slate-800">
-          <div className="flex items-center gap-2 text-emerald-400">
-            <Leaf size={12} /> 
-            <span className="uppercase font-bold">Parsing_ESG_Data</span>
-          </div>
-          <div className="flex items-center gap-2 text-amber-400">
-            <Shield size={12} /> 
-            <span className="uppercase font-bold">ESRS_Validation</span>
-          </div>
-          <div className="flex items-center gap-2 text-indigo-400">
-            <BarChart3 size={12} /> 
-            <span className="uppercase font-bold">Risk_Accounting</span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-400">
-            <Scale size={12} /> 
-            <span className="uppercase font-bold">Double_Materiality</span>
-          </div>
-        </div>
-
-        {/* Terminal Content */}
-        <div className="p-6 h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent bg-slate-950 text-xs relative">
-           <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-             <Leaf size={120} />
+        {/* Content Area */}
+        <div className="p-12 h-[550px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-900 scrollbar-track-transparent bg-slate-950/50 relative flex flex-col gap-4">
+           {/* AI Streamed Logic */}
+           <div className="space-y-2 opacity-50">
+             {activeLogs.map((log, i) => (
+               <div key={i} className="text-slate-600 flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-500">
+                 <span className="text-gold-500/20 font-black tracking-widest">[{new Date().toLocaleTimeString([], {hour12: false, hour: '2-digit', minute:'2-digit', second: '2-digit'})}]</span>
+                 <span className="text-slate-500 font-bold">{`> ${log}`}</span>
+               </div>
+             ))}
            </div>
 
-           <pre className="text-emerald-500/90 whitespace-pre-wrap break-all font-mono leading-relaxed overflow-x-hidden">
-             <span className="text-slate-500">{`> initializing_turbo_protocol...\n> loading_regulatory_standards: [ESRS_E1, ESRS_S1, ESRS_G1]\n> establishing_high_speed_stream... OK.\n> analyzing_financial_materiality... IN_PROGRESS.\n\n`}</span>
-             {formatStreamDisplay(streamText)}
-             <span className="animate-pulse inline-block w-2 h-4 bg-amber-500 ml-1 align-middle"></span>
-           </pre>
+           <div className="mt-12 pt-12 border-t border-white/5">
+             <div className="text-gold-500/40 font-black mb-6 uppercase tracking-[0.5em] flex items-center gap-3">
+               <Lock size={12} strokeWidth={3} /> Assurance_Stream
+             </div>
+             <pre className="text-slate-400 whitespace-pre-wrap break-all leading-loose opacity-90 font-mono tracking-tight">
+               {formatStreamDisplay(streamText)}
+               <span className="animate-pulse inline-block w-2.5 h-4 bg-gold-500/30 ml-2 align-middle"></span>
+             </pre>
+           </div>
+           
            <div ref={bottomRef} />
         </div>
         
         {/* Footer */}
-        <div className="bg-slate-900 px-4 py-2 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-500 font-bold">
-          <span className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
-            MODE: LATENCY_OPTIMIZED
-          </span>
-          <span>PROVIDER: GOOGLE_FLASH_3</span>
-        </div>
-      </div>
-      
-      <div className="mt-4 flex flex-col items-center gap-2 animate-pulse">
-        <p className="text-slate-500 text-sm font-medium">
-          Accelerating CSRD Analysis via Flash-3 Engine...
-        </p>
-        <div className="flex gap-1">
-          <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
-          <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
-          <div className="w-1.5 h-1.5 bg-amber-300 rounded-full"></div>
+        <div className="bg-white/5 px-8 py-5 border-t border-white/5 flex justify-between items-center text-[9px] text-slate-700 font-black tracking-[0.5em] uppercase">
+          <div className="flex items-center gap-8">
+            <span className="flex items-center gap-3 text-gold-500">
+              <Loader2 size={12} className="animate-spin" /> CRYSTALLIZING_METRICS
+            </span>
+            <span className="text-slate-800">|</span>
+            <span>ENCRYPTION: AES-256</span>
+          </div>
+          <div className="flex items-center gap-3 opacity-30">
+            <ShieldCheck size={12} />
+            GLOBAL_RESIDENCY_LOCKED
+          </div>
         </div>
       </div>
     </div>

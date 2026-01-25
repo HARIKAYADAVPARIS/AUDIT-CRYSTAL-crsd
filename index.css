@@ -16,3 +16,55 @@
 .report-card-transition {
   @apply transition-all duration-300 ease-out;
 }
+
+/* Print Overrides */
+@media print {
+  nav, footer, .print-hidden, button, .audit-chat-button {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .max-w-6xl, .max-w-7xl {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  div {
+    box-shadow: none !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  .bg-slate-950, .bg-slate-900 {
+    background-color: #f8fafc !important;
+    color: #020617 !important;
+  }
+
+  .text-amber-400, .text-gold-400 {
+    color: #c68d41 !important;
+  }
+
+  .shadow-2xl, .shadow-xl, .shadow-md, .shadow-sm {
+    box-shadow: none !important;
+  }
+
+  .animate-in {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Force page breaks for clean report sections */
+  .print-break-before {
+    page-break-before: always;
+  }
+
+  /* Ensure text is black and readable */
+  p, span, h1, h2, h3, h4 {
+    color: #000 !important;
+  }
+}

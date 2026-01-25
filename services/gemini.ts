@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse, Modality } from "@google/genai";
 import { AuditResult } from "../types";
 
@@ -76,34 +77,25 @@ const RESPONSE_SCHEMA = {
     financialImpact: {
       type: Type.OBJECT,
       properties: {
+        totalRevenue: { type: Type.NUMBER },
+        revenueAtRiskPercentage: { type: Type.NUMBER },
+        currency: { type: Type.STRING },
         estimatedRevenueAtRisk: { type: Type.STRING },
         compliancePenaltyExposure: { type: Type.STRING },
         marketValuationRisk: { type: Type.STRING },
         costOfCapitalImpactBps: { type: Type.INTEGER },
-        scenarios: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              scenario: { type: Type.STRING },
-              estimatedImpact: { type: Type.STRING },
-              likelihood: { type: Type.STRING }
-            }
+        taxonomy: {
+          type: Type.OBJECT,
+          properties: {
+            aligned: { type: Type.NUMBER, description: "Percentage of revenue aligned with EU Taxonomy." },
+            eligible: { type: Type.NUMBER, description: "Percentage of revenue eligible but not aligned." },
+            nonEligible: { type: Type.NUMBER, description: "Percentage of revenue not eligible." }
           }
         },
-        climateScenarios: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              temp: { type: Type.STRING },
-              riskLevel: { type: Type.STRING, enum: ["Low", "Moderate", "High", "Catastrophic"] },
-              revenueImpactMultiplier: { type: Type.NUMBER },
-              valuationImpactMultiplier: { type: Type.NUMBER },
-              keyRiskDriver: { type: Type.STRING }
-            }
-          }
-        }
+        scope1And2Tonnage: { type: Type.NUMBER, description: "Total Scope 1+2 emissions in tonnes." },
+        carbonIntensityMetric: { type: Type.STRING, description: "e.g. tCO2e per EUR million revenue" },
+        scenarios: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { scenario: { type: Type.STRING }, estimatedImpact: { type: Type.STRING }, likelihood: { type: Type.STRING } } } },
+        climateScenarios: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { temp: { type: Type.STRING }, riskLevel: { type: Type.STRING }, revenueImpactMultiplier: { type: Type.NUMBER }, valuationImpactMultiplier: { type: Type.NUMBER }, keyRiskDriver: { type: Type.STRING } } } }
       }
     },
     mandatoryDisclosures: {
@@ -139,22 +131,22 @@ const RESPONSE_SCHEMA = {
         }
       }
     },
-    detailedFrameworks: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, alignmentScore: { type: Type.INTEGER }, status: { type: Type.STRING } } } },
+    detailedFrameworks: { 
+      type: Type.ARRAY, 
+      items: { 
+        type: Type.OBJECT, 
+        properties: { 
+          name: { type: Type.STRING }, 
+          alignmentScore: { type: Type.INTEGER }, 
+          status: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
+          missingCriticals: { type: Type.ARRAY, items: { type: Type.STRING } },
+          evidenceCount: { type: Type.INTEGER }
+        } 
+      } 
+    },
     peerBenchmarks: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, score: { type: Type.INTEGER }, insight: { type: Type.STRING } } } },
     esrsTopics: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { code: { type: Type.STRING }, name: { type: Type.STRING }, score: { type: Type.INTEGER }, status: { type: Type.STRING } } } },
-    subsidiaries: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          region: { type: Type.STRING },
-          readinessScore: { type: Type.INTEGER },
-          status: { type: Type.STRING, enum: ["Compliant", "In Progress", "At Risk"] },
-          topGap: { type: Type.STRING }
-        }
-      }
-    }
+    subsidiaries: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, region: { type: Type.STRING }, readinessScore: { type: Type.INTEGER }, status: { type: Type.STRING }, topGap: { type: Type.STRING } } } }
   }
 };
 
@@ -191,14 +183,16 @@ export const analyzeDocument = async (
   onStreamUpdate: (text: string) => void
 ): Promise<AuditResult> => {
   const ai = getAi();
-  const model = 'gemini-3-pro-preview';
-  const prompt = `You are Audit Crystal, the world's leading AI CSRD readiness auditor. 
-  Perform a deep, real-time audit on the provided document against ESRS 1-12 standards.
-  Be extremely critical and cite page numbers where evidence is found.
-  If data is missing, recommend a specific boardroom remediation step.
-  Generate financial impact projections based on cost-of-capital implications.
-  Include climate stress test multipliers for different scenarios.
-  Identify subsidiaries and regional gaps.`;
+  const model = 'gemini-3-flash-preview'; 
+  const prompt = `Perform a world-class, multi-framework CSRD readiness audit in high-speed mode.
+  
+  AUDIT PROTOCOL:
+  1. Analyze compliance against ALL global frameworks: ESRS, GRI, SASB, TCFD, and ISSB.
+  2. Extract EU Taxonomy Splits (% Aligned, Eligible, Non).
+  3. Calculate Carbon Intensity (Scope 1+2 vs Total Revenue).
+  4. Provide 100% deterministic PDF page citations for all evidence.
+  
+  Respond ONLY with the validated JSON object.`;
 
   const parts: any[] = [{ text: prompt }];
   if (fileBase64 && mimeType) {
@@ -216,7 +210,7 @@ export const analyzeDocument = async (
       responseMimeType: "application/json",
       responseSchema: RESPONSE_SCHEMA,
       temperature: 0.1,
-      thinkingConfig: { thinkingBudget: 32768 }
+      thinkingConfig: { thinkingBudget: 0 } 
     }
   });
 
@@ -257,9 +251,7 @@ export const connectLiveAssistant = (auditContext: AuditResult, callbacks: any) 
     callbacks,
     config: {
       responseModalities: [Modality.AUDIO],
-      systemInstruction: `You are the Audit Crystal Live Voice Assistant. You have access to a full CSRD audit report for ${auditContext.companyName}.
-      Answer questions about compliance gaps, financial risks, and roadmap priorities.
-      Voice style: Professional, concise, authoritative, like a lead audit partner.`,
+      systemInstruction: `You are the Audit Crystal Live Voice Assistant. Answer questions about compliance gaps, financial risks, and roadmap priorities.`,
       speechConfig: {
         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
       },
@@ -287,16 +279,14 @@ export const askAuditAssistant = async (question: string, context: AuditResult):
 
 export const generateESRSPolicy = async (gapCode: string, gapDescription: string, context: AuditResult): Promise<string> => {
   const ai = getAi();
-  const model = 'gemini-3-pro-preview';
-  const prompt = `Draft a high-end corporate policy for ${context.companyName} that specifically remediates the gap: ${gapCode} - ${gapDescription}.
-  Ensure it follows ESRS requirements precisely. Use professional legal and sustainability terminology.`;
+  const model = 'gemini-3-flash-preview'; 
+  const prompt = `Draft a high-end corporate policy for ${context.companyName} remediating the gap: ${gapCode} - ${gapDescription}.`;
 
   const response = await ai.models.generateContent({
     model,
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: {
       temperature: 0.1,
-      thinkingConfig: { thinkingBudget: 16000 }
     }
   });
 
@@ -306,8 +296,8 @@ export const generateESRSPolicy = async (gapCode: string, gapDescription: string
 export const fetchPeerIntelligence = async (companyName: string): Promise<any> => {
   const ai = getAi();
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: [{ role: 'user', parts: [{ text: `Research the 3 top direct competitors for ${companyName} regarding their CSRD readiness status and sustainability maturity. Return a JSON array of objects with keys: name, readinessScore (1-100), keyGap, reportUrl.` }] }],
+    model: 'gemini-3-flash-preview',
+    contents: [{ role: 'user', parts: [{ text: `Research the 3 top direct competitors for ${companyName} regarding their CSRD readiness status and sustainability reporting. Return an array of objects.` }] }],
     config: {
       tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
@@ -320,7 +310,8 @@ export const fetchPeerIntelligence = async (companyName: string): Promise<any> =
             readinessScore: { type: Type.INTEGER },
             keyGap: { type: Type.STRING },
             reportUrl: { type: Type.STRING }
-          }
+          },
+          required: ["name", "readinessScore", "keyGap", "reportUrl"]
         }
       }
     }
@@ -337,9 +328,7 @@ export const generateBoardVideo = async (auditResult: AuditResult): Promise<stri
     }
   }
 
-  const prompt = `A cinematic, high-end 3D data visualization for a boardroom presentation showing sustainability readiness for ${auditResult.companyName}.
-  A graph rising from ${auditResult.scoreValue} to 100%. Professional lighting, deep blue and gold corporate aesthetic.
-  A professional camera sweep across a modern glass boardroom table with holographic ESG metrics floating.`;
+  const prompt = `A cinematic 3D data visualization for ${auditResult.companyName}.`;
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -364,9 +353,6 @@ export const generateBoardVideo = async (auditResult: AuditResult): Promise<stri
     const blob = await response.blob();
     return URL.createObjectURL(blob);
   } catch (error: any) {
-    if (error.message?.includes("Requested entity was not found") && aistudio) {
-      await aistudio.openSelectKey();
-    }
     throw error;
   }
 };
