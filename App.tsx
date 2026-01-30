@@ -1,46 +1,37 @@
 import React, { useState } from 'react';
-import { analyzeDocument } from './services/gemini';
+import { analyzeDocument } from './services/gemini'; // Matches root services folder
 import LandingPage from './components/LandingPage';
 import AnalysisTerminal from './components/AnalysisTerminal';
 
-/**
- * AUDIT CRYSTAL - Institutional Alpha v1.0
- * Goal: Forbes 40 Under 40 Readiness
- */
 function App() {
-  const [active, setActive] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [report, setReport] = useState<string | null>(null);
+  const [isStarted, setIsStarted] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [auditResult, setAuditResult] = useState<string | null>(null);
 
-  const startAudit = async (file: File) => {
-    setAnalyzing(true);
+  const processFile = async (file: File) => {
+    setIsAnalyzing(true);
     try {
-      const data = await analyzeDocument(file);
-      setReport(data);
-    } catch (err) {
-      console.error("Audit processing error", err);
+      const result = await analyzeDocument(file);
+      setAuditResult(result);
+    } catch (error) {
+      console.error("Audit failed:", error);
     } finally {
-      setAnalyzing(false);
+      setIsAnalyzing(false);
     }
   };
 
-  if (!active) {
-    return <LandingPage onStart={() => setActive(true)} />;
-  }
+  if (!isStarted) return <LandingPage onStart={() => setIsStarted(true)} />;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white selection:bg-blue-500/30">
-      <nav className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/50 backdrop-blur-md sticky top-0">
-        <h1 className="font-black tracking-tighter text-xl text-blue-500">AUDIT CRYSTAL</h1>
-        <div className="text-[10px] uppercase tracking-widest text-slate-500">ISSA 5000 Protocol Enabled</div>
+    <div className="min-h-screen bg-[#020617] text-white">
+      <nav className="p-6 border-b border-white/5 flex justify-between items-center">
+        <span className="font-bold tracking-tighter text-xl text-blue-500">AUDIT CRYSTAL</span>
+        <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded border border-blue-500/20">
+          INSTITUTIONAL ALPHA
+        </span>
       </nav>
-
-      <main className="container mx-auto p-6">
-        <AnalysisTerminal 
-          onUpload={startAudit} 
-          isAnalyzing={analyzing} 
-          result={report} 
-        />
+      <main className="container mx-auto py-12 px-6">
+        <AnalysisTerminal onUpload={processFile} isAnalyzing={isAnalyzing} result={auditResult} />
       </main>
     </div>
   );
