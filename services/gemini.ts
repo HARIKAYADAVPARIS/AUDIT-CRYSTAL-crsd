@@ -1,350 +1,80 @@
+import { GoogleGenAI } from "@google/genai";
 
-import { GoogleGenAI, Type, GenerateContentResponse, Modality } from "@google/genai";
-import { AuditResult } from "../types";
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const genAI = new GoogleGenAI({ apiKey });
 
-// Always initialize inside functions or via a getter to ensure fresh state if needed
-const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-/**
- * Institutional Base64 Helpers
- * Required for raw PCM audio and video generation
- */
-export function encode(bytes: Uint8Array): string {
-  let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-export function decode(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-/**
- * Decodes raw PCM audio data into an AudioBuffer
- * Optimized for Gemini 2.5 TTS (24kHz, 1 channel)
- */
-export async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number = 24000,
-  numChannels: number = 1,
-): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
-  return buffer;
-}
-
-const RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    companyName: { type: Type.STRING },
-    readinessScore: { type: Type.STRING, enum: ["Ready", "Partially Ready", "Not Ready"] },
-    scoreValue: { type: Type.INTEGER },
-    sectorPeerAverage: { type: Type.INTEGER },
-    scoreBreakdown: {
-      type: Type.OBJECT,
-      properties: {
-        doubleMateriality: { type: Type.INTEGER },
-        valueChain: { type: Type.INTEGER },
-        dataGranularity: { type: Type.INTEGER },
-        strategyGovernance: { type: Type.INTEGER },
-        frameworkAlignment: { type: Type.INTEGER }
-      }
-    },
-    executiveSummary: { type: Type.STRING },
-    doubleMaterialityMatrix: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          topic: { type: Type.STRING },
-          financialScore: { type: Type.INTEGER },
-          impactScore: { type: Type.INTEGER },
-          category: { type: Type.STRING },
-          reasoning: { type: Type.STRING }
-        }
-      }
-    },
-    financialImpact: {
-      type: Type.OBJECT,
-      properties: {
-        totalRevenue: { type: Type.NUMBER },
-        revenueAtRiskPercentage: { type: Type.NUMBER },
-        currency: { type: Type.STRING },
-        estimatedRevenueAtRisk: { type: Type.STRING },
-        compliancePenaltyExposure: { type: Type.STRING },
-        marketValuationRisk: { type: Type.STRING },
-        costOfCapitalImpactBps: { type: Type.INTEGER },
-        taxonomy: {
-          type: Type.OBJECT,
-          properties: {
-            aligned: { type: Type.NUMBER },
-            eligible: { type: Type.NUMBER },
-            nonEligible: { type: Type.NUMBER }
-          }
-        },
-        scope1And2Tonnage: { type: Type.NUMBER },
-        carbonIntensityMetric: { type: Type.STRING },
-        scenarios: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { scenario: { type: Type.STRING }, estimatedImpact: { type: Type.STRING }, likelihood: { type: Type.STRING } } } },
-        climateScenarios: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { temp: { type: Type.STRING }, riskLevel: { type: Type.STRING }, revenueImpactMultiplier: { type: Type.NUMBER }, valuationImpactMultiplier: { type: Type.NUMBER }, keyRiskDriver: { type: Type.STRING } } } }
-      }
-    },
-    mandatoryDisclosures: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          code: { type: Type.STRING },
-          description: { type: Type.STRING },
-          status: { type: Type.STRING, enum: ["Present", "Missing"] },
-          fixRecommendation: { type: Type.STRING },
-          evidence: {
-            type: Type.OBJECT,
-            properties: {
-              quote: { type: Type.STRING },
-              page: { type: Type.INTEGER }
-            },
-            nullable: true
-          }
-        }
-      }
-    },
-    roadmap: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          phase: { type: Type.STRING },
-          action: { type: Type.STRING },
-          details: { type: Type.STRING },
-          impactOnScore: { type: Type.INTEGER },
-          financialSavingEstimate: { type: Type.STRING }
-        }
-      }
-    },
-    detailedFrameworks: { 
-      type: Type.ARRAY, 
-      items: { 
-        type: Type.OBJECT, 
-        properties: { 
-          name: { type: Type.STRING }, 
-          alignmentScore: { type: Type.INTEGER }, 
-          status: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
-          missingCriticals: { type: Type.ARRAY, items: { type: Type.STRING } },
-          evidenceCount: { type: Type.INTEGER }
-        } 
-      } 
-    },
-    peerBenchmarks: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, score: { type: Type.INTEGER }, insight: { type: Type.STRING } } } },
-    esrsTopics: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { code: { type: Type.STRING }, name: { type: Type.STRING }, score: { type: Type.INTEGER }, status: { type: Type.STRING } } } },
-    subsidiaries: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, region: { type: Type.STRING }, readinessScore: { type: Type.INTEGER }, status: { type: Type.STRING }, topGap: { type: Type.STRING } } } }
-  }
-};
-
-const tryRepairJson = (jsonString: string): string => {
-  let cleaned = jsonString.trim();
-  cleaned = cleaned.replace(/^```json\s*/i, "").replace(/\s*```$/i, "");
-  // Simple check for truncated JSON
-  const stack: string[] = [];
-  let inString = false;
-  let escaped = false;
-  for (let i = 0; i < cleaned.length; i++) {
-    const char = cleaned[i];
-    if (char === '"' && !escaped) inString = !inString;
-    escaped = char === "\\" && !escaped;
-    if (!inString) {
-      if (char === "{" || char === "[") stack.push(char);
-      else if (char === "}" || char === "]") stack.pop();
-    }
-  }
-  if (inString) cleaned += '"';
-  while (stack.length > 0) {
-    const last = stack.pop();
-    if (last === "{") cleaned += "}";
-    if (last === "[") cleaned += "]";
-  }
-  return cleaned;
-};
-
-export const analyzeDocument = async (
-  fileBase64: string | null,
-  mimeType: string | null,
-  textInput: string | null,
-  onStreamUpdate: (text: string) => void
-): Promise<AuditResult> => {
-  const ai = getAi();
-  const model = 'gemini-3-flash-preview'; 
-  const prompt = `Perform a high-speed CSRD pre-audit.
+// 1. Institutional Document Analysis
+export async function analyzeDocument(file: File) {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" }); // Using Pro for deep compliance logic
   
-  AUDIT PROTOCOL:
-  1. Map compliance against ESRS, GRI, SASB, TCFD, ISSB.
-  2. Extract EU Taxonomy Splits (% Aligned, Eligible, Non).
-  3. Calculate Carbon Intensity (Scope 1+2 vs Total Revenue).
-  4. Provide page citations for evidence.
-  
-  Return ONLY validated JSON.`;
-
-  const parts: any[] = [{ text: prompt }];
-  if (fileBase64 && mimeType) {
-    parts.push({
-      inlineData: { data: fileBase64, mimeType: mimeType }
-    });
-  } else if (textInput) {
-    parts.push({ text: `Analyze content: ${textInput}` });
-  }
-
-  const responseStream = await ai.models.generateContentStream({
-    model,
-    contents: { parts },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
-      temperature: 0.1,
-      thinkingConfig: { thinkingBudget: 0 } 
-    }
+  const base64Data = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.readAsDataURL(file);
   });
 
-  let fullText = "";
-  for await (const chunk of responseStream) {
-    const text = chunk.text;
-    if (text) {
-      fullText += text;
-      onStreamUpdate(text);
-    }
-  }
+  const prompt = `
+    Act as a CSRD Institutional Lead. Analyze this document using the 'Auditor Workpaper Mode' logic.
+    1. Cross-reference against the Assurance Interoperability Matrix (ESRS, GRI, TCFD, ISSB)[cite: 39].
+    2. Flag compliance gaps in G1-1, E1-6, S1-1, and S2-1 disclosures[cite: 47].
+    3. Apply 'Propagated Transparency'[cite: 76]: Identify missing data and suggest 'Best-to-Worst' case intervals.
+    4. Provide an 'Aggregate Readiness Score' (%) and an 'Institutional Alpha' rating[cite: 18, 19].
+    5. Verify alignment with ISSA 5000 Protocol[cite: 55].
+  `;
+  
+  const result = await model.generateContent([
+    { inlineData: { mimeType: file.type, data: base64Data } },
+    { text: prompt }
+  ]);
+  
+  return result.response.text();
+}
 
-  const result = JSON.parse(tryRepairJson(fullText));
-  return { ...result, timestamp: new Date().toISOString() } as AuditResult;
-};
+// 2. Automated Digital Scorecard Logic
+export async function fetchPeerIntelligence(industry: string) {
+  const prompt = `
+    Retrieve 2026 market benchmarks for ${industry}. 
+    Simulate 'Distributed Reporting' data pulls from supplier digital scorecards[cite: 74, 83].
+    Provide a 'Global Readiness Rank' based on HEC Paris S&O Center Policy Brief 42[cite: 16, 80].
+  `;
+  const response = await genAI.models.generateContent({
+    model: "gemini-1.5-flash",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+  });
+  return response.text;
+}
 
-export const generateBriefingAudio = async (text: string): Promise<string> => {
-  const ai = getAi();
-  const response = await ai.models.generateContent({
+// 3. ESRS/Omnibus I Policy Generator
+export async function generateESRSPolicy(topic: string, data: any) {
+  const prompt = `Draft a CSRD policy for ${topic}. Apply the Dec 2024 IAASB ISSA 5000 verification standards[cite: 62, 63].`;
+  const response = await genAI.models.generateContent({
+    model: "gemini-1.5-flash",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+  });
+  return response.text;
+}
+
+// 4. Executive Briefing & Live Tools
+export async function generateBriefingAudio(text: string) {
+  const response = await genAI.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: `Synthesize a professional CFO executive briefing: ${text}` }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Zephyr' },
-        },
-      },
-    },
+    contents: [{ parts: [{ text: `Strategic Intelligence Brief: ${text} [cite: 70]` }] }],
+    config: { responseModalities: ["audio"] }
   });
-  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+}
+
+export async function connectLiveAssistant(config: any) {
+  return await genAI.live.connect({ model: "gemini-1.5-flash", ...config });
+}
+
+// 5. Shared Utilities
+export const decodeAudioData = async (b64: string) => {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
 };
 
-export const connectLiveAssistant = (auditContext: AuditResult, callbacks: any) => {
-  const ai = getAi();
-  return ai.live.connect({
-    model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-    callbacks,
-    config: {
-      responseModalities: [Modality.AUDIO],
-      systemInstruction: `You are the Audit Crystal Live Voice Assistant. Use context: ${JSON.stringify(auditContext)}`,
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
-      },
-    },
-  });
-};
-
-export const askAuditAssistant = async (question: string, context: AuditResult): Promise<{ text: string, links: any[] }> => {
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: [{ role: 'user', parts: [{ text: `Context: ${JSON.stringify(context)}\n\nQuestion: ${question}` }] }],
-    config: {
-      tools: [{ googleSearch: {} }]
-    }
-  });
-  
-  const links = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => ({
-    uri: c.web?.uri,
-    title: c.web?.title
-  })).filter((l: any) => l.uri) || [];
-
-  return { text: response.text || "I couldn't process that request.", links };
-};
-
-export const generateESRSPolicy = async (gapCode: string, gapDescription: string, context: AuditResult): Promise<string> => {
-  const ai = getAi();
-  const model = 'gemini-3-flash-preview'; 
-  const prompt = `Draft a high-end corporate policy for ${context.companyName} remediating: ${gapCode} - ${gapDescription}.`;
-
-  const response = await ai.models.generateContent({
-    model,
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: {
-      temperature: 0.1,
-    }
-  });
-
-  return response.text || "Failed to generate policy draft.";
-};
-
-export const fetchPeerIntelligence = async (companyName: string): Promise<any> => {
-  const ai = getAi();
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: [{ role: 'user', parts: [{ text: `Research the 3 top competitors for ${companyName} regarding CSRD readiness.` }] }],
-    config: {
-      tools: [{ googleSearch: {} }],
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            readinessScore: { type: Type.INTEGER },
-            keyGap: { type: Type.STRING },
-            reportUrl: { type: Type.STRING }
-          }
-        }
-      }
-    }
-  });
-  
-  return JSON.parse(response.text || "[]");
-};
-
-export const generateBoardVideo = async (auditResult: AuditResult): Promise<string> => {
-  const ai = getAi();
-  let operation = await ai.models.generateVideos({
-    model: 'veo-3.1-fast-generate-preview',
-    prompt: `A cinematic 3D data visualization for ${auditResult.companyName} showing sustainability growth.`,
-    config: {
-      numberOfVideos: 1,
-      resolution: '720p',
-      aspectRatio: '16:9'
-    }
-  });
-
-  while (!operation.done) {
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    operation = await ai.operations.getVideosOperation({ operation: operation });
-  }
-
-  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-  const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-  const blob = await response.blob();
-  return URL.createObjectURL(blob);
-};
+export const decodeBase64 = (str: string) => atob(str);
+export const encodeBase64 = (data: any) => btoa(String.fromCharCode(...new Uint8Array(data)));
