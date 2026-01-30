@@ -4,8 +4,8 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenAI(apiKey);
 
 /**
- * INSTITUTIONAL ANALYSIS ENGINE
- * Must use 'export' to satisfy the import in App.tsx
+ * NAMED EXPORT: analyzeDocument
+ * This must be present for App.tsx to find the function.
  */
 export async function analyzeDocument(file: File) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
@@ -17,10 +17,10 @@ export async function analyzeDocument(file: File) {
   });
 
   const prompt = `
-    Conduct CSRD Pre-Assurance Audit:
-    1. Framework Alignment: ESRS, GRI, ISSB.
-    2. Logic: Apply 'Propagated Transparency' for value chain gaps.
-    3. Standards: ISSA 5000 Reasonable Assurance readiness.
+    Institutional CSRD Audit Mode:
+    1. Frameworks: ESRS, GRI, ISSB.
+    2. Logic: Propagated Transparency & Penalty by Default.
+    3. Goal: 2026 Reasonable Assurance readiness.
   `;
   
   const result = await model.generateContent([
@@ -28,11 +28,5 @@ export async function analyzeDocument(file: File) {
     { text: prompt }
   ]);
   
-  return result.response.text();
-}
-
-export async function fetchPeerIntelligence(industry: string) {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const result = await model.generateContent(`Strategic benchmarking for ${industry} via HEC Paris Brief 42.`);
   return result.response.text();
 }
