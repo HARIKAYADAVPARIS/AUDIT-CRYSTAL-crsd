@@ -1,67 +1,46 @@
-import React, { useState } from 'react';
-import { analyzeDocument } from '../services/gemini'; // Adjust path if services is at root
+import { GoogleGenAI } from "@google/generative-ai";
 
-/**
- * Audit Crystal: Institutional-Grade CSRD Assurance Interface
- * Sync: ISSA 5000 / Propagated Transparency Logic
- */
-export default function App() {
-  const [result, setResult] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const genAI = new GoogleGenAI(apiKey);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+export async function analyzeDocument(file: File) {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+  
+  const base64Data = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.readAsDataURL(file);
+  });
 
-    setLoading(true);
-    try {
-      // Calling the function from your services/gemini.ts file
-      const analysis = await analyzeDocument(file);
-      setResult(analysis);
-    } catch (error) {
-      console.error("Audit failed:", error);
-      setResult("Error: Unable to complete institutional pre-assurance.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-900 text-white p-8 font-sans">
-      <header className="mb-12 border-b border-slate-700 pb-6">
-        <h1 className="text-4xl font-bold tracking-tight text-blue-400">AUDIT CRYSTAL</h1>
-        <p className="text-slate-400 mt-2">Institutional-Grade CSRD Assurance & Readiness Insights</p>
-      </header>
-
-      <main className="max-w-4xl mx-auto">
-        <section className="bg-slate-800 rounded-xl p-8 border border-slate-700 shadow-2xl">
-          <h2 className="text-xl font-semibold mb-4 text-slate-200">Auditor Workpaper Mode</h2>
-          <p className="text-sm text-slate-400 mb-6">
-            Upload sustainability disclosures for multi-framework alignment (ESRS/GRI/ISSB) 
-            and ISSA 5000 protocol verification.
-          </p>
-
-          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors">
-            <span className="text-slate-300 font-medium">
-              {loading ? "Analyzing Document..." : "Drop file to start CSRD Audit"}
-            </span>
-            <input type="file" className="hidden" onChange={handleFileUpload} disabled={loading} />
-          </label>
-        </section>
-
-        {result && (
-          <section className="mt-12 bg-slate-800 rounded-xl p-8 border border-blue-500/30">
-            <h3 className="text-lg font-bold text-blue-400 mb-4 uppercase tracking-widest">Readiness Report</h3>
-            <div className="prose prose-invert max-w-none text-slate-300 whitespace-pre-wrap">
-              {result}
-            </div>
-          </section>
-        )}
-      </main>
-
-      <footer className="mt-24 text-center text-slate-500 text-xs uppercase tracking-widest">
-        Audit Crystal © 2026 | Institutional Alpha Protocol
-      </footer>
-    </div>
-  );
+  const prompt = `
+    Role: Lead Sustainability Auditor (Institutional Mode).
+    Task: Conduct an Institutional CSRD Pre-Assurance Audit.
+    
+    1. Framework Alignment: Map findings to ESRS (72%), GRI (94%), and ISSB standards.
+    2. Propagated Transparency: Apply 'Penalty by Default' logic to missing supplier data, 
+       replacing gaps with best-to-worst case intervals.
+    3. Assurance Roadmap: Evaluate readiness for 2026-2027 Reasonable Assurance (ISSA 5000).
+    4. Scoring: Output an Aggregate Readiness Score and Institutional Alpha rank.
+  `;
+  
+  const result = await model.generateContent([
+    { inlineData: { mimeType: file.type, data: base64Data } },
+    { text: prompt }
+  ]);
+  
+  return result.response.text();
 }
+
+export async function fetchPeerIntelligence(industry: string) {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const prompt = `Analyze ${industry} based on HEC Paris Jan 2026 Policy Brief 42.`;
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
+
+export const decodeAudioData = async (base64: string) => {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+};
