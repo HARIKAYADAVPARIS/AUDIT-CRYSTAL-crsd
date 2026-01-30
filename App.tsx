@@ -1,57 +1,232 @@
+
 import React, { useState } from 'react';
-import { Shield, Globe, BarChart3, ArrowRight } from 'lucide-react';
+import { Gem, ShieldAlert } from 'lucide-react';
+import FileUpload from './components/FileUpload';
+import Report from './components/Report';
+import LandingPage from './components/LandingPage';
 import AnalysisTerminal from './components/AnalysisTerminal';
+import { analyzeDocument } from './services/gemini';
+import { AnalysisState, ReadinessStatus, AuditResult } from './types';
 
-function App() {
-  const [showApp, setShowApp] = useState(false);
+const SAMPLE_RESULT: AuditResult = {
+  companyName: "GlobalLogistics Group",
+  readinessScore: ReadinessStatus.PARTIALLY_READY,
+  scoreValue: 78,
+  sectorPeerAverage: 65,
+  scoreBreakdown: {
+    doubleMateriality: 22,
+    valueChain: 14,
+    dataGranularity: 18,
+    strategyGovernance: 16,
+    frameworkAlignment: 8
+  },
+  executiveSummary: "GlobalLogistics Group exhibits a robust alignment with ESRS E1 Climate standards but shows significant gaps in Governance (G1) and Supply Chain Ethics (S2). Analysis detected missing board-level oversight narratives for sustainability risks. Transition plan quantification for 2.0°C scenarios is currently incomplete, representing a 4.2% revenue exposure.",
+  timestamp: new Date().toISOString(),
+  doubleMaterialityMatrix: [
+    { topic: "Climate Change Adaptation", financialScore: 9, impactScore: 8, category: "Environment", reasoning: "High physical risk to logistics hubs in coastal areas." },
+    { topic: "Labor Practices", financialScore: 5, impactScore: 9, category: "Social", reasoning: "Critical for retention in the transport sector." },
+    { topic: "Business Conduct", financialScore: 7, impactScore: 6, category: "Governance", reasoning: "Compliance with cross-border anti-bribery laws." }
+  ],
+  financialImpact: {
+    totalRevenue: 584000000,
+    revenueAtRiskPercentage: 4.2,
+    currency: "EUR",
+    estimatedRevenueAtRisk: "€24.5M",
+    compliancePenaltyExposure: "5% of Global Turnover",
+    marketValuationRisk: "10% Multiple Discount",
+    costOfCapitalImpactBps: 42,
+    taxonomy: {
+      aligned: 18.5,
+      eligible: 32.2,
+      nonEligible: 49.3
+    },
+    scope1And2Tonnage: 184500,
+    carbonIntensityMetric: "316 tCO2e/€M",
+    scenarios: [],
+    climateScenarios: [
+      { temp: '1.5°C', riskLevel: 'Low', revenueImpactMultiplier: 1.0, valuationImpactMultiplier: 1.0, keyRiskDriver: "Carbon pricing transition" },
+      { temp: '2.0°C', riskLevel: 'Moderate', revenueImpactMultiplier: 1.12, valuationImpactMultiplier: 1.05, keyRiskDriver: "Resource scarcity and fuel taxes" },
+      { temp: '4.0°C', riskLevel: 'Catastrophic', revenueImpactMultiplier: 1.35, valuationImpactMultiplier: 1.25, keyRiskDriver: "Global supply chain collapse" }
+    ]
+  },
+  detailedFrameworks: [
+    { name: 'ESRS', alignmentScore: 88, status: 'High', missingCriticals: ['E1-1 Governance', 'G1-2 Compliance'], evidenceCount: 14 },
+    { name: 'GRI', alignmentScore: 72, status: 'Medium', missingCriticals: ['GRI 302-1 Energy Intensity'], evidenceCount: 8 },
+    { name: 'SASB', alignmentScore: 94, status: 'High', missingCriticals: [], evidenceCount: 22 },
+    { name: 'TCFD', alignmentScore: 45, status: 'Low', missingCriticals: ['Scenario Analysis'], evidenceCount: 3 },
+    { name: 'ISSB', alignmentScore: 68, status: 'Medium', missingCriticals: ['S1 Core Disclosure'], evidenceCount: 9 }
+  ],
+  mandatoryDisclosures: [
+    { code: "G1-1", description: "Role of board/management in sustainability oversight", status: "Missing", fixRecommendation: "Draft a formal Supervisory Board charter linking management pay to carbon KPIs." },
+    { code: "E1-6", description: "Gross Scope 1, 2, 3 GHG emissions", status: "Present", evidence: { quote: "Total GHG emissions for 2023 were estimated at 184,500 tCO2e across Scope 1 and 2.", page: 47 } },
+    { code: "S1-1", description: "Policies related to own workforce", status: "Present", evidence: { quote: "Collective bargaining agreements cover 94% of operations.", page: 82 } },
+    { code: "S2-1", description: "Policies related to workers in value chain", status: "Missing", fixRecommendation: "Implement a mandatory Supplier Code of Conduct for Tier 2 logistics partners." }
+  ],
+  roadmap: [
+    { phase: "Q1 2025", action: "Formalize Board Oversight", details: "Establish dedicated ESG committee with veto rights on CAPEX.", impactOnScore: 12, financialSavingEstimate: "€10M Protection" },
+    { phase: "Q2 2025", action: "Tier 2 Supply Audit", details: "Automate supply chain mapping using ChainScout API.", impactOnScore: 8, financialSavingEstimate: "15bps Cap saving" }
+  ],
+  esrsTopics: [
+    { code: "E1", name: "Climate Change", score: 88, status: "Ready" },
+    { code: "G1", name: "Governance", score: 32, status: "Critical" },
+    { code: "S1", name: "Workforce", score: 92, status: "Ready" }
+  ],
+  subsidiaries: [
+    { name: "GlobalLogistics EU", region: "Europe", readinessScore: 92, status: "Compliant", topGap: "None" },
+    { name: "GlobalLogistics Asia", region: "Asia", readinessScore: 45, status: "At Risk", topGap: "Labor Tracking" }
+  ],
+  peerBenchmarks: []
+};
 
-  if (!showApp) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-200">
-        {/* Institutional Hero */}
-        <header className="py-24 px-6 text-center relative overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-blue-500/10 blur-[120px]" />
-          <h1 className="text-6xl font-black text-white mb-6">Audit Crystal</h1>
-          <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-10">
-            Institutional-Grade CSRD Pre-Assurance for the 2026 Reasonable Assurance transition.
-          </p>
-          <button 
-            onClick={() => setShowApp(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 mx-auto transition-transform active:scale-95"
-          >
-            Enter Workpaper Mode <ArrowRight size={20} />
-          </button>
-        </header>
+const App: React.FC = () => {
+  const [view, setView] = useState<'landing' | 'app'>('landing');
+  
+  const [analysisState, setAnalysisState] = useState<AnalysisState>({
+    isLoading: false,
+    isStreaming: false,
+    streamText: "",
+    error: null,
+    result: null,
+    pdfUrl: null
+  });
 
-        {/* 2026 Compliance Grid */}
-        <section className="py-20 container mx-auto px-6 grid md:grid-cols-3 gap-8">
-          <div className="p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-500/50 transition-colors">
-            <Shield className="text-blue-400 mb-4" />
-            <h3 className="text-xl font-bold mb-2">ISSA 5000 Readiness</h3>
-            <p className="text-sm text-slate-400">Alignment with IAASB standards for limited and reasonable assurance workflows.</p>
+  const handleAnalyze = async (file: File | null, url: string | null, useSample: boolean = false) => {
+    if (useSample) {
+      setAnalysisState({ isLoading: true, isStreaming: false, streamText: "", error: null, result: null, pdfUrl: null });
+      setTimeout(() => {
+        setAnalysisState({
+          isLoading: false,
+          isStreaming: false,
+          streamText: "",
+          error: null,
+          result: SAMPLE_RESULT,
+          pdfUrl: null
+        });
+        setView('app');
+      }, 1500);
+      return;
+    }
+
+    let pdfUrl = null;
+    if (file) pdfUrl = URL.createObjectURL(file);
+    
+    setAnalysisState({ 
+      isLoading: true, 
+      isStreaming: true,
+      streamText: "",
+      error: null, 
+      result: null,
+      pdfUrl: pdfUrl 
+    });
+
+    try {
+      let fileBase64: string | null = null;
+      let mimeType: string | null = null;
+
+      if (file) {
+        const reader = new FileReader();
+        fileBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        mimeType = file.type;
+      }
+
+      const textInput = url ? `Analyze CSRD for: ${url}` : null;
+
+      const result = await analyzeDocument(
+        fileBase64, 
+        mimeType, 
+        textInput, 
+        (chunk) => {
+          setAnalysisState(prev => ({ ...prev, streamText: prev.streamText + (chunk || "") }));
+        }
+      );
+
+      setAnalysisState(prev => ({ ...prev, isLoading: false, isStreaming: false, error: null, result }));
+
+    } catch (err: any) {
+      setAnalysisState(prev => ({ ...prev, isLoading: false, isStreaming: false, error: err.message || "An unexpected error occurred.", result: null }));
+    }
+  };
+
+  const handleReset = () => {
+    if (analysisState.pdfUrl) URL.revokeObjectURL(analysisState.pdfUrl);
+    setAnalysisState({ isLoading: false, isStreaming: false, streamText: "", error: null, result: null, pdfUrl: null });
+  };
+
+  const startApp = (useSample: boolean = false) => {
+    if (useSample) {
+      handleAnalyze(null, null, true);
+    } else {
+      setView('app');
+    }
+  };
+
+  if (view === 'landing' && !analysisState.isLoading && !analysisState.result) return <LandingPage onStart={startApp} />;
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 print:bg-white overflow-x-hidden">
+      <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 shadow-md print:hidden">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('landing')}>
+            <div className="p-1.5 bg-gold-500 rounded-lg shadow-[0_0_15px_rgba(198,141,65,0.3)]"><Gem className="text-white" size={24} /></div>
+            <span className="text-lg font-serif italic text-white tracking-tight">Audit Crystal</span>
           </div>
-          <div className="p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/50 transition-colors">
-            <Globe className="text-emerald-400 mb-4" />
-            <h3 className="text-xl font-bold mb-2">Interoperability Matrix</h3>
-            <p className="text-sm text-slate-400">Mapping disclosures across ESRS, GRI, and ISSB simultaneously.</p>
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] font-black px-3 py-1 bg-slate-800 text-gold-400 border border-slate-700 rounded-full uppercase tracking-widest">Pre-Audit v4.1</span>
           </div>
-          <div className="p-8 rounded-2xl bg-white/5 border border-white/10 hover:border-purple-500/50 transition-colors">
-            <BarChart3 className="text-purple-400 mb-4" />
-            <h3 className="text-xl font-bold mb-2">Propagated Transparency</h3>
-            <p className="text-sm text-slate-400">Automated 'Penalty by Default' logic for missing value chain data.</p>
+        </div>
+      </nav>
+
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-12 print:p-0">
+        {analysisState.error && (
+          <div className="mb-8 p-6 bg-red-50 border border-red-200 rounded-2xl shadow-sm flex items-start gap-4">
+            <div className="p-2 bg-red-100 rounded-xl text-red-600"><ShieldAlert size={20} /></div>
+            <div className="flex-1">
+              <h3 className="text-sm font-black text-red-900 uppercase mb-1">Audit Connection Interrupted</h3>
+              <p className="text-sm text-red-700 leading-relaxed">{analysisState.error}</p>
+            </div>
           </div>
-        </section>
+        )}
 
-        <footer className="py-10 text-center border-t border-white/5">
-          <p className="text-[10px] text-slate-600 uppercase tracking-widest">
-            Audit Crystal AI Pre-Assurance | Not a licensed accounting firm.
-          </p>
-        </footer>
-      </div>
-    );
-  }
+        {analysisState.isLoading && analysisState.isStreaming && <AnalysisTerminal streamText={analysisState.streamText} />}
+        {analysisState.isLoading && !analysisState.isStreaming && (
+           <div className="flex flex-col items-center justify-center py-24 space-y-6">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gold-500/20 rounded-full animate-ping"></div>
+                <Gem size={64} className="text-gold-500 animate-pulse relative z-10" />
+              </div>
+              <p className="text-slate-500 font-bold animate-pulse uppercase tracking-widest text-sm">Simulating CSRD Audit Protocol...</p>
+           </div>
+        )}
 
-  return <AnalysisTerminal />;
-}
+        {!analysisState.isLoading && analysisState.result ? (
+          <Report data={analysisState.result} pdfUrl={analysisState.pdfUrl} onReset={handleReset} />
+        ) : (
+          !analysisState.isLoading && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="text-center mb-12 space-y-4">
+                <h1 className="text-5xl font-serif text-slate-900 tracking-tight leading-none italic">Institutional <br/><span className="not-italic font-black text-6xl">Pre-Audit Vault</span></h1>
+                <p className="text-slate-500 max-w-2xl mx-auto font-medium leading-relaxed">
+                  Analyze your report against global ESRS standards. 
+                  Get a <span className="text-slate-900 font-bold underline decoration-gold-400">Deterministic</span> gap analysis in seconds.
+                </p>
+              </div>
+              <FileUpload onAnalyze={handleAnalyze} isLoading={analysisState.isLoading} />
+            </div>
+          )
+        )}
+      </main>
+
+      <footer className="bg-white border-t border-slate-200 py-10 print:hidden">
+        <div className="max-w-7xl mx-auto px-6 text-center text-slate-400 text-[10px] font-black uppercase tracking-widest">
+          © MMXXVI Audit Crystal AI • Institutional Trust Intelligence
+        </div>
+      </footer>
+    </div>
+  );
+};
 
 export default App;

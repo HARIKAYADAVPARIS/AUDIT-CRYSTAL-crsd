@@ -2,6 +2,7 @@
   "name": "Audit Crystal - Institutional CSRD Readiness",
   "description": "AI-powered CSRD readiness assistant that ingests PDFs/URLs to generate institutional-grade action roadmaps and pre-audit assurance.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "geolocation"
   ]
 }
