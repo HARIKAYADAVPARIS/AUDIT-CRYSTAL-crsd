@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AuditResult } from '../types';
-import { ShieldCheck, ArrowUpRight, SearchCheck, CheckCircle2, AlertTriangle, XCircle, Info, ChevronRight, Scale, Globe, Target, Layers, FileText, CheckCircle } from 'lucide-react';
+import { ShieldCheck, SearchCheck, CheckCircle2, XCircle, Info, ChevronRight, Scale, Globe, Target, Layers, CheckCircle } from 'lucide-react';
 
 interface FrameworkIntelligenceProps {
   data: AuditResult;
@@ -28,12 +28,12 @@ const FrameworkIntelligence: React.FC<FrameworkIntelligenceProps> = ({ data, onS
 
   const getFrameworkIcon = (name: string) => {
     switch (name) {
-      case 'ESRS': return <Scale size={24} className="text-amber-500" />;
-      case 'GRI': return <Globe size={24} className="text-emerald-500" />;
-      case 'SASB': return <Target size={24} className="text-indigo-500" />;
-      case 'TCFD': return <ShieldCheck size={24} className="text-orange-500" />;
-      case 'ISSB': return <Layers size={24} className="text-blue-500" />;
-      default: return <Info size={24} />;
+      case 'ESRS': return <Scale size={20} className="text-amber-500" />;
+      case 'GRI': return <Globe size={20} className="text-emerald-500" />;
+      case 'SASB': return <Target size={20} className="text-indigo-500" />;
+      case 'TCFD': return <ShieldCheck size={20} className="text-orange-500" />;
+      case 'ISSB': return <Layers size={20} className="text-blue-500" />;
+      default: return <Info size={20} />;
     }
   };
 
@@ -52,8 +52,8 @@ const FrameworkIntelligence: React.FC<FrameworkIntelligenceProps> = ({ data, onS
                 <SearchCheck size={12} /> Auditor Workpaper Mode
               </div>
               <h2 className="text-4xl font-black tracking-tighter">Global Framework <span className="text-amber-500">Alignment IQ</span></h2>
-              <p className="text-slate-400 text-sm max-lg leading-relaxed">
-                Standardized compliance mapping across all major regulatory frameworks. Each percentage point is tied to verified institutional data logic.
+              <p className="text-slate-400 text-sm max-w-lg leading-relaxed">
+                Standardized compliance mapping across global regulatory frameworks. Each percentage point is tied to verified institutional data logic.
               </p>
               <div className="flex gap-4 pt-2">
                  <button 
@@ -81,11 +81,11 @@ const FrameworkIntelligence: React.FC<FrameworkIntelligenceProps> = ({ data, onS
       </div>
 
       {/* 2. FRAMEWORK CARDS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {frameworks.map((fw, idx) => (
-          <div key={idx} className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden flex flex-col h-full">
-             <div className="flex justify-between items-start mb-6">
-                <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-amber-50 transition-colors">
+          <div key={idx} className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden flex flex-col h-full">
+             <div className="flex justify-between items-start mb-4">
+                <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-amber-50 transition-colors">
                    {getFrameworkIcon(fw.name)}
                 </div>
                 <div className={`text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-50 ${getStatusColor(fw.status)}`}>
@@ -93,10 +93,14 @@ const FrameworkIntelligence: React.FC<FrameworkIntelligenceProps> = ({ data, onS
                 </div>
              </div>
 
-             <h4 className="text-xl font-black text-slate-900 mb-1">{fw.name}</h4>
-             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-6">Standard Alignment</p>
+             <div className="mb-4">
+                <h4 className="text-lg font-black text-slate-900">{fw.name}</h4>
+                <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-300 uppercase tracking-tighter">
+                   <CheckCircle size={10} className="text-emerald-500" /> Verified Alignment
+                </div>
+             </div>
 
-             <div className="relative h-2 bg-slate-100 rounded-full mb-8 overflow-hidden">
+             <div className="relative h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
                 <div 
                   className={`absolute inset-y-0 left-0 transition-all duration-1000 ${
                     fw.alignmentScore >= 80 ? 'bg-emerald-500' : fw.alignmentScore >= 50 ? 'bg-amber-500' : 'bg-red-500'
@@ -106,21 +110,18 @@ const FrameworkIntelligence: React.FC<FrameworkIntelligenceProps> = ({ data, onS
              </div>
 
              <div className="flex justify-between items-end mb-6">
-                <div className="text-3xl font-black text-slate-900">{fw.alignmentScore}%</div>
-                <div className="text-[10px] font-bold text-slate-300 flex items-center gap-1 group-hover:text-amber-500 transition-colors cursor-help" title={`${fw.evidenceCount} verified citations linked`}>
-                   <CheckCircle size={12} /> Verified
-                </div>
+                <div className="text-3xl font-black text-slate-900 tracking-tighter">{fw.alignmentScore}%</div>
+                <div className="text-[10px] font-black text-slate-400">SCORE</div>
              </div>
 
              <div className="mt-auto space-y-2 border-t border-slate-50 pt-4">
-                <div className="text-[10px] font-black text-slate-400 uppercase mb-2">Compliance Gaps</div>
-                {fw.missingCriticals?.length > 0 ? fw.missingCriticals.slice(0, 2).map((gap: string, gidx: number) => (
-                  <div key={gidx} className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                    <ChevronRight size={12} className="text-red-400" /> {gap}
+                {fw.missingCriticals?.length > 0 ? (
+                  <div className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                    <ChevronRight size={12} className="text-red-400" /> {fw.missingCriticals.length} Compliance Gaps
                   </div>
-                )) : (
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600">
-                    <CheckCircle2 size={12} /> Full Alignment
+                ) : (
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 uppercase">
+                    <CheckCircle2 size={12} /> Compliant
                   </div>
                 )}
              </div>
@@ -130,14 +131,10 @@ const FrameworkIntelligence: React.FC<FrameworkIntelligenceProps> = ({ data, onS
 
       {/* 3. DETERMINISTIC CROSS-REFERENCE MATRIX */}
       <div className="bg-white rounded-3xl border border-slate-100 p-10 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-10 opacity-5">
-           <Layers size={120} className="text-indigo-600" />
-        </div>
-        
         <div className="mb-8">
            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Assurance Interoperability Matrix</h3>
            <p className="text-sm text-slate-500 max-w-xl mt-1">
-             How a single disclosure satisfies multiple global standards simultaneously. Standardized across global reporting cycles.
+             How a single disclosure satisfies multiple global standards simultaneously. 
            </p>
         </div>
 
@@ -179,7 +176,7 @@ const FrameworkIntelligence: React.FC<FrameworkIntelligenceProps> = ({ data, onS
                            onClick={onShowEvidence}
                            className="text-[10px] font-black text-indigo-600 hover:underline uppercase tracking-widest"
                          >
-                           Verify Data
+                           Verify
                          </button>
                       </td>
                    </tr>

@@ -1,8 +1,10 @@
+
 import React, { useState, useMemo } from 'react';
 import { AuditResult } from '../types';
 import { TrendingUp, ShieldAlert, Zap, ArrowUpRight, CheckCircle2, DollarSign, Activity, Play, Pause, Loader2, Volume2, Info, ChevronRight, BarChart3, Target, Sparkles, TrendingDown, Thermometer, CloudLightning, Sun, Waves, Calculator, Sliders, Edit3, Save } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Cell, BarChart, Bar } from 'recharts';
-import { generateBriefingAudio, decodeAudioData, decodeBase64 } from '../services/gemini';
+// Fixed: use decode instead of decodeBase64
+import { generateBriefingAudio, decodeAudioData, decode } from '../services/gemini';
 
 interface CFOExecutiveBriefProps {
   data: AuditResult;
@@ -40,7 +42,8 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
       const audioContent = `CFO Briefing for ${data.companyName}. Current revenue at risk is estimated at ${formatCurrency(calculatedRiskAmount)}. Cost of capital impact is ${data.financialImpact.costOfCapitalImpactBps} basis points.`;
       const base64Audio = await generateBriefingAudio(audioContent);
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      const audioBuffer = await decodeAudioData(decodeBase64(base64Audio), audioCtx);
+      // Fixed: use decode instead of decodeBase64
+      const audioBuffer = await decodeAudioData(decode(base64Audio), audioCtx);
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioCtx.destination);
@@ -161,7 +164,7 @@ const CFOExecutiveBrief: React.FC<CFOExecutiveBriefProps> = ({ data }) => {
                  </div>
                )}
 
-               <p className="text-slate-400 text-sm max-w-md leading-relaxed pt-6">
+               <p className="text-slate-400 text-sm max-lg leading-relaxed pt-6">
                  Aggregate financial liability identified across ESRS domains. Current profile creates a <span className="text-red-400 font-bold">-{data.financialImpact.marketValuationRisk}</span> market valuation discount based on {manualRiskPercent}% terminal risk.
                </p>
              </div>

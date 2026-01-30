@@ -1,8 +1,8 @@
 
+import { askAuditAssistant, connectLiveAssistant, decodeAudioData, decode, encode } from '../services/gemini';
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, X, MessageSquare, Mic, MicOff, Loader2, Sparkles, ExternalLink } from 'lucide-react';
 import { AuditResult, ChatMessage } from '../types';
-import { askAuditAssistant, connectLiveAssistant, decodeAudioData, decodeBase64, encodeBase64 } from '../services/gemini';
 
 interface AuditChatProps {
   auditResult: AuditResult;
@@ -77,7 +77,8 @@ const AuditChat: React.FC<AuditChatProps> = ({ auditResult }) => {
             const l = inputData.length;
             const int16 = new Int16Array(l);
             for (let i = 0; i < l; i++) int16[i] = inputData[i] * 32768;
-            const pcmBlob = { data: encodeBase64(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
+            // Fixed: use encode instead of encodeBase64
+            const pcmBlob = { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
             sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
           };
           source.connect(scriptProcessor);
@@ -88,7 +89,8 @@ const AuditChat: React.FC<AuditChatProps> = ({ auditResult }) => {
           if (base64Audio && audioCtxRef.current) {
             const ctx = audioCtxRef.current;
             nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-            const audioBuffer = await decodeAudioData(decodeBase64(base64Audio), ctx);
+            // Fixed: use decode instead of decodeBase64
+            const audioBuffer = await decodeAudioData(decode(base64Audio), ctx);
             const source = ctx.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(ctx.destination);

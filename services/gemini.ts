@@ -2,10 +2,14 @@
 import { GoogleGenAI, Type, GenerateContentResponse, Modality } from "@google/genai";
 import { AuditResult } from "../types";
 
-// Always initialize inside functions to ensure fresh state if needed for key selection
+// Always initialize inside functions or via a getter to ensure fresh state if needed
 const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export function encodeBase64(bytes: Uint8Array): string {
+/**
+ * Institutional Base64 Helpers
+ * Required for raw PCM audio and video generation
+ */
+export function encode(bytes: Uint8Array): string {
   let binary = '';
   const len = bytes.byteLength;
   for (let i = 0; i < len; i++) {
@@ -14,7 +18,7 @@ export function encodeBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-export function decodeBase64(base64: string): Uint8Array {
+export function decode(base64: string): Uint8Array {
   const binaryString = atob(base64);
   const len = binaryString.length;
   const bytes = new Uint8Array(len);
@@ -24,6 +28,10 @@ export function decodeBase64(base64: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * Decodes raw PCM audio data into an AudioBuffer
+ * Optimized for Gemini 2.5 TTS (24kHz, 1 channel)
+ */
 export async function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
@@ -87,13 +95,13 @@ const RESPONSE_SCHEMA = {
         taxonomy: {
           type: Type.OBJECT,
           properties: {
-            aligned: { type: Type.NUMBER, description: "Percentage of revenue aligned with EU Taxonomy." },
-            eligible: { type: Type.NUMBER, description: "Percentage of revenue eligible but not aligned." },
-            nonEligible: { type: Type.NUMBER, description: "Percentage of revenue not eligible." }
+            aligned: { type: Type.NUMBER },
+            eligible: { type: Type.NUMBER },
+            nonEligible: { type: Type.NUMBER }
           }
         },
-        scope1And2Tonnage: { type: Type.NUMBER, description: "Total Scope 1+2 emissions in tonnes." },
-        carbonIntensityMetric: { type: Type.STRING, description: "e.g. tCO2e per EUR million revenue" },
+        scope1And2Tonnage: { type: Type.NUMBER },
+        carbonIntensityMetric: { type: Type.STRING },
         scenarios: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { scenario: { type: Type.STRING }, estimatedImpact: { type: Type.STRING }, likelihood: { type: Type.STRING } } } },
         climateScenarios: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { temp: { type: Type.STRING }, riskLevel: { type: Type.STRING }, revenueImpactMultiplier: { type: Type.NUMBER }, valuationImpactMultiplier: { type: Type.NUMBER }, keyRiskDriver: { type: Type.STRING } } } }
       }
@@ -153,7 +161,7 @@ const RESPONSE_SCHEMA = {
 const tryRepairJson = (jsonString: string): string => {
   let cleaned = jsonString.trim();
   cleaned = cleaned.replace(/^```json\s*/i, "").replace(/\s*```$/i, "");
-  if (cleaned.endsWith(',')) cleaned = cleaned.slice(0, -1);
+  // Simple check for truncated JSON
   const stack: string[] = [];
   let inString = false;
   let escaped = false;
@@ -167,7 +175,6 @@ const tryRepairJson = (jsonString: string): string => {
     }
   }
   if (inString) cleaned += '"';
-  cleaned = cleaned.trim();
   while (stack.length > 0) {
     const last = stack.pop();
     if (last === "{") cleaned += "}";
@@ -184,15 +191,15 @@ export const analyzeDocument = async (
 ): Promise<AuditResult> => {
   const ai = getAi();
   const model = 'gemini-3-flash-preview'; 
-  const prompt = `Perform a world-class, multi-framework CSRD readiness audit in high-speed mode.
+  const prompt = `Perform a high-speed CSRD pre-audit.
   
   AUDIT PROTOCOL:
-  1. Analyze compliance against ALL global frameworks: ESRS, GRI, SASB, TCFD, and ISSB.
+  1. Map compliance against ESRS, GRI, SASB, TCFD, ISSB.
   2. Extract EU Taxonomy Splits (% Aligned, Eligible, Non).
   3. Calculate Carbon Intensity (Scope 1+2 vs Total Revenue).
-  4. Provide 100% deterministic PDF page citations for all evidence.
+  4. Provide page citations for evidence.
   
-  Respond ONLY with the validated JSON object.`;
+  Return ONLY validated JSON.`;
 
   const parts: any[] = [{ text: prompt }];
   if (fileBase64 && mimeType) {
@@ -231,7 +238,7 @@ export const generateBriefingAudio = async (text: string): Promise<string> => {
   const ai = getAi();
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: `Synthesize a professional, high-stakes CFO executive briefing based on this audit summary: ${text}` }] }],
+    contents: [{ parts: [{ text: `Synthesize a professional CFO executive briefing: ${text}` }] }],
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {
@@ -251,7 +258,7 @@ export const connectLiveAssistant = (auditContext: AuditResult, callbacks: any) 
     callbacks,
     config: {
       responseModalities: [Modality.AUDIO],
-      systemInstruction: `You are the Audit Crystal Live Voice Assistant. Answer questions about compliance gaps, financial risks, and roadmap priorities.`,
+      systemInstruction: `You are the Audit Crystal Live Voice Assistant. Use context: ${JSON.stringify(auditContext)}`,
       speechConfig: {
         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
       },
@@ -262,7 +269,7 @@ export const connectLiveAssistant = (auditContext: AuditResult, callbacks: any) 
 export const askAuditAssistant = async (question: string, context: AuditResult): Promise<{ text: string, links: any[] }> => {
   const ai = getAi();
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3-pro-preview',
     contents: [{ role: 'user', parts: [{ text: `Context: ${JSON.stringify(context)}\n\nQuestion: ${question}` }] }],
     config: {
       tools: [{ googleSearch: {} }]
@@ -280,7 +287,7 @@ export const askAuditAssistant = async (question: string, context: AuditResult):
 export const generateESRSPolicy = async (gapCode: string, gapDescription: string, context: AuditResult): Promise<string> => {
   const ai = getAi();
   const model = 'gemini-3-flash-preview'; 
-  const prompt = `Draft a high-end corporate policy for ${context.companyName} remediating the gap: ${gapCode} - ${gapDescription}.`;
+  const prompt = `Draft a high-end corporate policy for ${context.companyName} remediating: ${gapCode} - ${gapDescription}.`;
 
   const response = await ai.models.generateContent({
     model,
@@ -296,8 +303,8 @@ export const generateESRSPolicy = async (gapCode: string, gapDescription: string
 export const fetchPeerIntelligence = async (companyName: string): Promise<any> => {
   const ai = getAi();
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: [{ role: 'user', parts: [{ text: `Research the 3 top direct competitors for ${companyName} regarding their CSRD readiness status and sustainability reporting. Return an array of objects.` }] }],
+    model: 'gemini-3-pro-preview',
+    contents: [{ role: 'user', parts: [{ text: `Research the 3 top competitors for ${companyName} regarding CSRD readiness.` }] }],
     config: {
       tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
@@ -310,8 +317,7 @@ export const fetchPeerIntelligence = async (companyName: string): Promise<any> =
             readinessScore: { type: Type.INTEGER },
             keyGap: { type: Type.STRING },
             reportUrl: { type: Type.STRING }
-          },
-          required: ["name", "readinessScore", "keyGap", "reportUrl"]
+          }
         }
       }
     }
@@ -321,38 +327,24 @@ export const fetchPeerIntelligence = async (companyName: string): Promise<any> =
 };
 
 export const generateBoardVideo = async (auditResult: AuditResult): Promise<string> => {
-  const aistudio = (window as any).aistudio;
-  if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
-    if (!(await aistudio.hasSelectedApiKey())) {
-      await aistudio.openSelectKey();
+  const ai = getAi();
+  let operation = await ai.models.generateVideos({
+    model: 'veo-3.1-fast-generate-preview',
+    prompt: `A cinematic 3D data visualization for ${auditResult.companyName} showing sustainability growth.`,
+    config: {
+      numberOfVideos: 1,
+      resolution: '720p',
+      aspectRatio: '16:9'
     }
+  });
+
+  while (!operation.done) {
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    operation = await ai.operations.getVideosOperation({ operation: operation });
   }
 
-  const prompt = `A cinematic 3D data visualization for ${auditResult.companyName}.`;
-
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  try {
-    let operation = await ai.models.generateVideos({
-      model: 'veo-3.1-fast-generate-preview',
-      prompt,
-      config: {
-        numberOfVideos: 1,
-        resolution: '720p',
-        aspectRatio: '16:9'
-      }
-    });
-
-    while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 10000));
-      operation = await ai.operations.getVideosOperation({ operation: operation });
-    }
-
-    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
-  } catch (error: any) {
-    throw error;
-  }
+  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+  const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 };

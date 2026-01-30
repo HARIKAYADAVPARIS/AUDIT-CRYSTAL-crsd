@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { AuditResult, ReadinessStatus, DisclosureStatus } from '../types';
-import { CheckCircle2, XCircle, AlertTriangle, FileText, Sparkles, ShieldCheck, Clock, Download, Briefcase, LayoutDashboard, Building2, Globe, Scale, Linkedin, Copy, Share2, Presentation, ChevronRight, Activity, PenLine, Trophy, SearchCheck, Layers, Gem, TrendingUp, Coins, ChevronDown, FileJson, FileType, Printer, FileDown, Target, Info } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, FileText, Sparkles, ShieldCheck, Clock, Download, Briefcase, LayoutDashboard, Building2, Globe, Scale, Linkedin, Copy, Share2, Presentation, ChevronRight, Activity, PenLine, Trophy, SearchCheck, Layers, Gem, TrendingUp, Coins, ChevronDown, FileJson, FileType, Printer, FileDown, Target, Info, FileSpreadsheet } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
 import TopicHeatmap from './TopicHeatmap';
 import AuditChat from './AuditChat';
@@ -96,6 +95,30 @@ const Report: React.FC<ReportProps> = ({ data, pdfUrl, onReset }) => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  const handleDownloadCSV = () => {
+    const filename = `AuditCrystal_${data.companyName.replace(/\s+/g, '_')}_Disclosures.csv`;
+    const headers = ['Code', 'Description', 'Status', 'Quote', 'Page'];
+    const rows = data.mandatoryDisclosures.map(d => [
+      d.code,
+      `"${d.description.replace(/"/g, '""')}"`,
+      d.status,
+      `"${(d.evidence?.quote || '').replace(/"/g, '""')}"`,
+      d.evidence?.page || ''
+    ]);
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     setShowExportMenu(false);
   };
 
@@ -209,6 +232,16 @@ const Report: React.FC<ReportProps> = ({ data, pdfUrl, onReset }) => {
                     <div>
                       <div className="text-xs font-black text-slate-900 uppercase">Assurance Report</div>
                       <div className="text-[10px] text-slate-500 font-bold">PDF Format</div>
+                    </div>
+                  </button>
+                  <button 
+                    onClick={handleDownloadCSV}
+                    className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-3 border-b border-slate-100"
+                  >
+                    <FileSpreadsheet size={18} className="text-emerald-500" />
+                    <div>
+                      <div className="text-xs font-black text-slate-900 uppercase">Audit Dataset</div>
+                      <div className="text-[10px] text-slate-500 font-bold">CSV Breakdown</div>
                     </div>
                   </button>
                   <button 
