@@ -1,18 +1,19 @@
 // vite.config.ts
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react-swc'; // Faster than @vitejs/plugin-react
+import react from '@vitejs/plugin-react-swc'; // SWC is faster and more stable for large builds
 
 export default defineConfig({
   plugins: [react()],
   build: {
-    minify: 'esbuild',
-    sourcemap: false, // Disabling sourcemaps significantly speeds up the 'transforming' phase
+    // Disabling sourcemaps can prevent the transformer from hanging on large files
+    sourcemap: false, 
     rollupOptions: {
-      cache: false, // Prevents corrupted cache from causing loops
+      // Prevents memory loops by clearing the build cache
+      cache: false,
       output: {
         manualChunks: {
-          // Splitting large vendor modules helps the transformer handle chunks more efficiently
-          vendor: ['lucide-react', '@google/generative-ai'], 
+          // Splitting heavy dependencies unburdens the transformer
+          vendor: ['lucide-react', '@google/generative-ai'],
         },
       },
     },
