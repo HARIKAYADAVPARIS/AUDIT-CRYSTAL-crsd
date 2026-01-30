@@ -1,63 +1,69 @@
-import { GoogleGenAI } from "@google/generative-ai";
+import React, { useState } from 'react';
+// This assumes services/gemini.ts is in the same root folder as App.tsx
+import { analyzeDocument } from './services/gemini'; 
+import LandingPage from './components/LandingPage';
+import AnalysisTerminal from './components/AnalysisTerminal';
+import { AnalysisState, ReadinessStatus, AuditResult } from './types';
 
 /**
- * Audit Crystal: Institutional-Grade CSRD Assurance
- * Repository Path: services/gemini.ts
+ * AUDIT CRYSTAL: Institutional Alpha Dashboard
+ * 2026-2027 Reasonable Assurance Sync (ISSA 5000)
  */
+function App() {
+  const [isStarted, setIsStarted] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [auditResult, setAuditResult] = useState<string | null>(null);
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = new GoogleGenAI(apiKey);
+  const handleStartAudit = () => {
+    setIsStarted(true);
+  };
 
-/**
- * 1. INSTITUTIONAL DOCUMENT ANALYSIS
- * Named Export: analyzeDocument
- * Logic: Auditor Workpaper Mode (Propagated Transparency)
- */
-export async function analyzeDocument(file: File) {
-  // Using Gemini 1.5 Pro for multi-framework compliance reasoning
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-  
-  const base64Data = await new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.readAsDataURL(file);
-  });
+  const processFile = async (file: File) => {
+    setIsAnalyzing(true);
+    try {
+      // Logic sync: Page 3 - Propagated Transparency & Penalty by Default
+      const result = await analyzeDocument(file);
+      setAuditResult(result);
+    } catch (error) {
+      console.error("Audit failed:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
-  const prompt = `
-    Task: Conduct an Institutional CSRD Pre-Assurance Audit.
-    Frameworks: ESRS (72%), GRI (94%), ISSB, TCFD, SASB.
-    
-    1. Apply 'Propagated Transparency' logic: Identify missing data and apply 
-       'Penalty by Default' using best-to-worst case intervals.
-    2. Verification: Align with ISSA 5000 for 2026 Reasonable Assurance.
-    3. Output: Aggregate Readiness Score (%) and Institutional Alpha rank.
-  `;
-  
-  const result = await model.generateContent([
-    { inlineData: { mimeType: file.type, data: base64Data } },
-    { text: prompt }
-  ]);
-  
-  return result.response.text();
+  if (!isStarted) {
+    return <LandingPage onStart={handleStartAudit} />;
+  }
+
+  return (
+    <div className="min-h-screen bg-[#020617] text-slate-100 font-sans selection:bg-blue-500/30">
+      <nav className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black">AC</div>
+          <span className="font-bold tracking-tighter text-xl">AUDIT CRYSTAL</span>
+        </div>
+        <div className="flex gap-4 items-center">
+          <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded border border-blue-500/20 font-bold uppercase tracking-widest">
+            Institutional Alpha v1.0
+          </span>
+        </div>
+      </nav>
+
+      <main className="container mx-auto py-12 px-6">
+        <AnalysisTerminal 
+          onUpload={processFile} 
+          isAnalyzing={isAnalyzing} 
+          result={auditResult} 
+        />
+      </main>
+
+      <footer className="py-12 border-t border-white/5 opacity-40 text-center">
+        <p className="text-[10px] uppercase tracking-[0.3em]">
+          Not a licensed accounting firm • Pre-Assurance Insights Only • ISSA 5000 Protocol
+        </p>
+      </footer>
+    </div>
+  );
 }
 
-/**
- * 2. STRATEGIC INTELLIGENCE BRIEF
- * Source: HEC Paris Policy Brief 42 (Jan 2026)
- */
-export async function fetchPeerIntelligence(industry: string) {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const prompt = `Analyze ${industry} benchmarks based on HEC Paris Policy Brief 42 regarding strategic transparency advantage.`;
-  const result = await model.generateContent(prompt);
-  return result.response.text();
-}
-
-/**
- * 3. UTILITY: AUDIO DECODING
- */
-export const decodeAudioData = async (base64: string) => {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-};
+export default App;
