@@ -1,37 +1,31 @@
 import React, { useState } from 'react';
-import { analyzeDocument } from './services/gemini'; // Matches root services folder
+import { analyzeDocument } from './services/gemini'; // Correct root-level path
 import LandingPage from './components/LandingPage';
 import AnalysisTerminal from './components/AnalysisTerminal';
 
 function App() {
-  const [isStarted, setIsStarted] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [auditResult, setAuditResult] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
 
-  const processFile = async (file: File) => {
+  const handleAudit = async (file: File) => {
     setIsAnalyzing(true);
     try {
-      const result = await analyzeDocument(file);
-      setAuditResult(result);
-    } catch (error) {
-      console.error("Audit failed:", error);
+      const report = await analyzeDocument(file);
+      setResult(report);
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  if (!isStarted) return <LandingPage onStart={() => setIsStarted(true)} />;
-
   return (
-    <div className="min-h-screen bg-[#020617] text-white">
-      <nav className="p-6 border-b border-white/5 flex justify-between items-center">
-        <span className="font-bold tracking-tighter text-xl text-blue-500">AUDIT CRYSTAL</span>
-        <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded border border-blue-500/20">
-          INSTITUTIONAL ALPHA
-        </span>
+    <div className="bg-black min-h-screen text-white">
+      <nav className="p-4 border-b border-white/10">
+        <h1 className="text-blue-500 font-bold">AUDIT CRYSTAL | Institutional Alpha</h1>
       </nav>
-      <main className="container mx-auto py-12 px-6">
-        <AnalysisTerminal onUpload={processFile} isAnalyzing={isAnalyzing} result={auditResult} />
+      <main className="p-8">
+        <AnalysisTerminal onUpload={handleAudit} isAnalyzing={isAnalyzing} result={result} />
       </main>
     </div>
   );
