@@ -1,9 +1,19 @@
 import { GoogleGenAI } from "@google/generative-ai";
 
+/**
+ * Audit Crystal: Institutional-Grade CSRD Assurance
+ * Path: /services/gemini.ts
+ */
+
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenAI(apiKey);
 
+/**
+ * 1. INSTITUTIONAL DOCUMENT ANALYSIS
+ * Logic: Auditor Workpaper Mode
+ */
 export async function analyzeDocument(file: File) {
+  // Use Gemini 1.5 Pro for multi-framework compliance reasoning
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
   
   const base64Data = await new Promise<string>((resolve) => {
@@ -13,14 +23,12 @@ export async function analyzeDocument(file: File) {
   });
 
   const prompt = `
-    Role: Lead Sustainability Auditor (Institutional Mode).
-    Task: Conduct an Institutional CSRD Pre-Assurance Audit.
-    
-    1. Framework Alignment: Map findings to ESRS (72%), GRI (94%), and ISSB standards.
-    2. Propagated Transparency: Apply 'Penalty by Default' logic to missing supplier data, 
-       replacing gaps with best-to-worst case intervals.
-    3. Assurance Roadmap: Evaluate readiness for 2026-2027 Reasonable Assurance (ISSA 5000).
-    4. Scoring: Output an Aggregate Readiness Score and Institutional Alpha rank.
+    Conduct an Institutional CSRD Pre-Assurance Audit:
+    1. Framework Alignment Matrix: Verify against ESRS (72% target), GRI (94% target), and ISSB.
+    2. Primary Disclosures: Validate G1-1, E1-6, S1-1, and S2-1.
+    3. Propagated Transparency: Apply 'Penalty by Default' logic to missing value-chain data—providing best-to-worst case intervals.
+    4. Assurance Protocol: Verify readiness for the 2026 Reasonable Assurance transition (ISSA 5000).
+    5. Ranking: Output Aggregate Readiness Score and Institutional Alpha rank.
   `;
   
   const result = await model.generateContent([
@@ -31,13 +39,20 @@ export async function analyzeDocument(file: File) {
   return result.response.text();
 }
 
+/**
+ * 2. STRATEGIC INTELLIGENCE
+ * Source: HEC Paris S&O Center Policy Brief 42 (Jan 2026)
+ */
 export async function fetchPeerIntelligence(industry: string) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const prompt = `Analyze ${industry} based on HEC Paris Jan 2026 Policy Brief 42.`;
+  const prompt = `Analyze ${industry} based on HEC Paris Policy Brief 42. How does product-level reporting turn transparency into a strategic advantage?`;
   const result = await model.generateContent(prompt);
   return result.response.text();
 }
 
+/**
+ * 3. UTILITIES
+ */
 export const decodeAudioData = async (base64: string) => {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
